@@ -39,6 +39,15 @@ def _zoneinfo_probe(args: dict) -> dict:
     return {"local": dt.isoformat()}
 
 
+def _check_schema(args: dict) -> dict:
+    from . import db
+    conn = db.connect(args["db_path"])
+    try:
+        return {"schema_version": db.check_schema(conn)}
+    finally:
+        conn.close()
+
+
 def _run(args: dict) -> dict:
     from . import run
     return run(args["db_path"], now_ts=args["now_ts"], tz=args["tz"], where=args["where"],
@@ -49,6 +58,7 @@ FUNCTIONS = {
     "version": _version,
     "sqlite_probe": _sqlite_probe,
     "zoneinfo_probe": _zoneinfo_probe,
+    "check_schema": _check_schema,
     "run": _run,
 }
 

@@ -45,7 +45,9 @@ run_layer swift-kit       swift test --package-path "$ROOT/apple/FengshuiKit"
 run_layer xcodegen        bash -c "cd '$ROOT/apple' && '$ROOT/.tools/xcodegen/bin/xcodegen' generate --quiet"
 run_layer ios-unit        xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme FengshuiUnit \
                             -destination "platform=iOS Simulator,id=$IPHONE" -derivedDataPath "$DD"
-run_layer watch-unit      xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme FengshuiWatch \
+# The iOS tests write build/swift_created.sqlite; the engine must accept it.
+run_layer python-swiftdb  env FENGSHUI_REQUIRE_SWIFT_DB=1 "$ROOT/.venv/bin/pytest" -q "$ROOT/engine/tests/test_swift_db.py"
+run_layer watch-unit     xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme FengshuiWatch \
                             -destination "platform=watchOS Simulator,id=$WATCH" -derivedDataPath "$DD"
 if [ $QUICK -eq 0 ]; then
   run_layer ios-ui        xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme Fengshui \

@@ -28,6 +28,10 @@ targets:
     sources:
       - path: Fengshui
         excludes: ["**/*.md"]
+      # Synthetic scenarios for -FengshuiTestMode (no real data in here).
+      - path: ../fixtures/scenarios
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: FengshuiKit
       - package: GRDB

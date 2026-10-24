@@ -1,0 +1,65 @@
+[
+ {
+  "hk_type": "HKQuantityTypeIdentifierHeartRate",
+  "start": 1792754100.0,
+  "end": 1792754100.0,
+  "source_name": "Test Watch",
+  "value": 62.0,
+  "value_text": null,
+  "key": "export:2149da0a85aa049180f66a5dd8cf77a958f02e11"
+ },
+ {
+  "hk_type": "HKQuantityTypeIdentifierHeartRate",
+  "start": 1792754100.4,
+  "end": 1792754100.6,
+  "source_name": "Test Watch",
+  "value": 64.5,
+  "value_text": null,
+  "key": "export:5e3f99241d8418923cc4c0e1490ab851464d5669"
+ },
+ {
+  "hk_type": "HKQuantityTypeIdentifierStepCount",
+  "start": 1792775640.5,
+  "end": 1792776480.0,
+  "source_name": "Test iPhone",
+  "value": 1512.0,
+  "value_text": null,
+  "key": "export:7daca4d15ed4baf1c949c86a6bdff71282823789"
+ },
+ {
+  "hk_type": "HKCategoryTypeIdentifierSleepAnalysis",
+  "start": 1792724700.0,
+  "end": 1792753260.0,
+  "source_name": "Test Watch",
+  "value": 3.0,
+  "value_text": "asleep_core",
+  "key": "export:0724be67bf318a9e4c37f34b7a63de4380ca09c4"
+ },
+ {
+  "hk_type": "HKCategoryTypeIdentifierHeadache",
+  "start": 1792782000.0,
+  "end": 1792785600.0,
+  "source_name": null,
+  "value": null,
+  "value_text": "severity_mild",
+  "key": "export:91955c08d9d96a57aaa259104052164700f5f045"
+ },
+ {
+  "hk_type": "HKQuantityTypeIdentifierVO2Max",
+  "start": 1792795200.0,
+  "end": 1792795200.0,
+  "source_name": "Test Watch",
+  "value": 41.23456789,
+  "value_text": null,
+  "key": "export:6d3d7237d6ac59807111afcc7f5035ae0aea528c"
+ },
+ {
+  "hk_type": "HKQuantityTypeIdentifierBodyMass",
+  "start": 1792795200.0,
+  "end": 1792795200.0,
+  "source_name": "Scale ü",
+  "value": 1e-05,
+  "value_text": null,
+  "key": "export:4dd8bbb8575794c1b79684fcaa21b19fb61ab404"
+ }
+]
