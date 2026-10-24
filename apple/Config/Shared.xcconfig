@@ -1,0 +1,18 @@
+// Shared build settings. Secrets and the Team ID live only in Local.xcconfig (gitignored),
+// which is included last so it can override anything here.
+
+CODE_SIGN_STYLE = Automatic
+SWIFT_VERSION = 6.0
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+WATCHOS_DEPLOYMENT_TARGET = 10.0
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// Paid-account features (Screen Time / Family Controls) stay off on the Personal Team (spec §1a).
+// Set FENGSHUI_PAID_ACCOUNT = YES in Local.xcconfig after switching (docs/PAID_ACCOUNT_SWITCH.md).
+FENGSHUI_PAID_ACCOUNT = NO
+FENGSHUI_FLAGS_YES = FENGSHUI_PAID_ACCOUNT
+FENGSHUI_FLAGS_NO =
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) $(FENGSHUI_FLAGS_$(FENGSHUI_PAID_ACCOUNT))
+
+#include? "Local.xcconfig"

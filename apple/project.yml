@@ -1,0 +1,172 @@
+# XcodeGen spec — the .xcodeproj is generated from this file; never hand-edit it.
+# Regenerate: scripts/bootstrap.sh  (or .tools/xcodegen/bin/xcodegen generate in apple/)
+name: Fengshui
+options:
+  bundleIdPrefix: com.chevin
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "26.0"
+    watchOS: "10.0"
+configFiles:
+  Debug: Config/Shared.xcconfig
+  Release: Config/Shared.xcconfig
+settings:
+  base:
+    ENABLE_USER_SCRIPT_SANDBOXING: NO   # the Python build phase writes into the app bundle
+    SWIFT_STRICT_CONCURRENCY: complete
+packages:
+  FengshuiKit:
+    path: FengshuiKit
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    exactVersion: 7.11.1
+
+targets:
+  Fengshui:
+    type: application
+    platform: iOS
+    sources:
+      - path: Fengshui
+        excludes: ["**/*.md"]
+    dependencies:
+      - package: FengshuiKit
+      - package: GRDB
+      - framework: Python/Python.xcframework
+        embed: true
+      - target: FengshuiWatch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui
+        PRODUCT_NAME: Fengshui
+        SWIFT_OBJC_BRIDGING_HEADER: Fengshui/Python/Fengshui-Bridging-Header.h
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+    postCompileScripts:
+      - name: Install embedded Python
+        script: |
+          "$PROJECT_DIR/../scripts/build_python_ios.sh"
+        basedOnDependencyAnalysis: false
+    entitlements:
+      path: Fengshui/Fengshui.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.developer.healthkit.background-delivery: true
+        com.apple.security.application-groups: [group.com.chevin.fengshui]
+        keychain-access-groups: ["$(AppIdentifierPrefix)com.chevin.fengshui"]
+    info:
+      path: Fengshui/Info.plist
+      properties:
+        CFBundleDisplayName: Fengshui
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [fetch, processing]
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.chevin.fengshui.refresh
+          - com.chevin.fengshui.processing
+        NSHealthShareUsageDescription: Fengshui reads your Health data to detect activity and plan your evening wind-down. Data stays on your iPhone and your own Mac.
+        NSHealthUpdateUsageDescription: Fengshui saves the recording sessions you start on your Apple Watch as workouts.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Fengshui notes when you arrive at or leave your saved places (like Home and Work) to plan your evening. It never tracks a continuous route.
+        NSLocationWhenInUseUsageDescription: Fengshui uses your location to set your saved places.
+        NSMotionUsageDescription: Fengshui reads your iPhone's motion activity (walking, driving…) to label your day.
+        NSLocalNetworkUsageDescription: Fengshui syncs with the Fengshui server on your own Mac over your home network.
+        NSBonjourServices: [_fengshui._tcp]
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+
+  FengshuiWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: FengshuiWatch
+    dependencies:
+      - package: FengshuiKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui.watchkitapp
+        PRODUCT_NAME: FengshuiWatch
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+    entitlements:
+      path: FengshuiWatch/FengshuiWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.security.application-groups: [group.com.chevin.fengshui]
+    info:
+      path: FengshuiWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Fengshui
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.chevin.fengshui
+        WKBackgroundModes: [workout-processing]
+        CLKComplicationPrincipalClass: $(PRODUCT_MODULE_NAME).ComplicationController
+        NSHealthShareUsageDescription: Fengshui reads heart rate during recording sessions you start.
+        NSHealthUpdateUsageDescription: Fengshui saves your recording sessions as workouts.
+        NSMotionUsageDescription: Fengshui records your watch's motion sensors in the background to detect activity.
+
+  FengshuiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests/FengshuiTests]
+    dependencies:
+      - target: Fengshui
+      - package: GRDB
+      - package: FengshuiKit
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Fengshui.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Fengshui"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  FengshuiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests/FengshuiUITests]
+    dependencies:
+      - target: Fengshui
+    settings:
+      base:
+        TEST_TARGET_NAME: Fengshui
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui.uitests
+        GENERATE_INFOPLIST_FILE: YES
+
+  FengshuiWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    sources: [Tests/FengshuiWatchTests]
+    dependencies:
+      - target: FengshuiWatch
+      - package: FengshuiKit
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/FengshuiWatch.app/FengshuiWatch"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui.watchkitapp.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Fengshui:
+    build:
+      targets:
+        Fengshui: all
+    test:
+      gatherCoverageData: false
+      targets: [FengshuiTests, FengshuiUITests]
+  FengshuiUnit:
+    build:
+      targets:
+        Fengshui: all
+    test:
+      targets: [FengshuiTests]
+  FengshuiWatch:
+    build:
+      targets:
+        FengshuiWatch: all
+    test:
+      targets: [FengshuiWatchTests]
