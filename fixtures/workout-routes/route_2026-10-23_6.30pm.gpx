@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC route (open water near 0,0 — not a real place). -->
+<gpx version="1.1" creator="Apple Health Export" xmlns="http://www.topografix.com/GPX/1/1">
+ <metadata><time>2026-10-24T20:19:00Z</time></metadata>
+ <trk><name>Route 2026-10-23 6:30pm</name><trkseg>
+  <trkpt lon="0.000100" lat="0.000100"><ele>10.1</ele><time>2026-10-23T22:30:00Z</time><extensions><speed>2.9</speed><course>90.0</course><hAcc>4.5</hAcc><vAcc>3.2</vAcc></extensions></trkpt>
+  <trkpt lon="0.000150" lat="0.000100"><ele>10.3</ele><time>2026-10-23T22:30:01Z</time><extensions><speed>3.0</speed><course>90.0</course><hAcc>4.4</hAcc><vAcc>3.2</vAcc></extensions></trkpt>
+  <trkpt lon="0.000200" lat="0.000101"><ele>10.6</ele><time>2026-10-23T22:30:02Z</time><extensions><speed>3.1</speed><course>89.0</course><hAcc>4.4</hAcc><vAcc>3.1</vAcc></extensions></trkpt>
+ </trkseg></trk>
+</gpx>

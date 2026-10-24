@@ -1,0 +1,1654 @@
+{
+ "sdk": "iPhoneOS27.0.sdk",
+ "max_ios": "26.0",
+ "types": [
+  {
+   "identifier": "HKAudiogramSampleType",
+   "kind": "audiogram",
+   "ios": "13.0",
+   "label": "audiogram",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAbdominalCramps",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "abdominal_cramps",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAcne",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "acne",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAppetiteChanges",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "appetite_changes",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAppleStandHour",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "apple_stand_hour",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAppleWalkingSteadinessEvent",
+   "kind": "category",
+   "ios": "15.0",
+   "label": "apple_walking_steadiness_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierBladderIncontinence",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "bladder_incontinence",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierBleedingAfterPregnancy",
+   "kind": "category",
+   "ios": "18.0",
+   "label": "bleeding_after_pregnancy",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierBleedingDuringPregnancy",
+   "kind": "category",
+   "ios": "18.0",
+   "label": "bleeding_during_pregnancy",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierBloating",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "bloating",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierBreastPain",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "breast_pain",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierCervicalMucusQuality",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "cervical_mucus_quality",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierChestTightnessOrPain",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "chest_tightness_or_pain",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierChills",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "chills",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierConstipation",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "constipation",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierContraceptive",
+   "kind": "category",
+   "ios": "14.3",
+   "label": "contraceptive",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierCoughing",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "coughing",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierDiarrhea",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "diarrhea",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierDizziness",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "dizziness",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierDrySkin",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "dry_skin",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierEnvironmentalAudioExposureEvent",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "environmental_audio_exposure_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierFainting",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "fainting",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierFatigue",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "fatigue",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierFever",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "fever",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierGeneralizedBodyAche",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "generalized_body_ache",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHairLoss",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "hair_loss",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHandwashingEvent",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "handwashing_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHeadache",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "headache",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHeadphoneAudioExposureEvent",
+   "kind": "category",
+   "ios": "14.2",
+   "label": "headphone_audio_exposure_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHeartburn",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "heartburn",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHighHeartRateEvent",
+   "kind": "category",
+   "ios": "12.2",
+   "label": "high_heart_rate_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierHotFlashes",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "hot_flashes",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierInfrequentMenstrualCycles",
+   "kind": "category",
+   "ios": "16.0",
+   "label": "infrequent_menstrual_cycles",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierIntermenstrualBleeding",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "intermenstrual_bleeding",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierIrregularHeartRhythmEvent",
+   "kind": "category",
+   "ios": "12.2",
+   "label": "irregular_heart_rhythm_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierIrregularMenstrualCycles",
+   "kind": "category",
+   "ios": "16.0",
+   "label": "irregular_menstrual_cycles",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLactation",
+   "kind": "category",
+   "ios": "14.3",
+   "label": "lactation",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLossOfSmell",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "loss_of_smell",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLossOfTaste",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "loss_of_taste",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLowCardioFitnessEvent",
+   "kind": "category",
+   "ios": "14.3",
+   "label": "low_cardio_fitness_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLowHeartRateEvent",
+   "kind": "category",
+   "ios": "12.2",
+   "label": "low_heart_rate_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierLowerBackPain",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "lower_back_pain",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierMemoryLapse",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "memory_lapse",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierMenstrualFlow",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "menstrual_flow",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierMindfulSession",
+   "kind": "category",
+   "ios": "10.0",
+   "label": "mindful_session",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierMoodChanges",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "mood_changes",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierNausea",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "nausea",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierNightSweats",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "night_sweats",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierOvulationTestResult",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "ovulation_test_result",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierPelvicPain",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "pelvic_pain",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierPersistentIntermenstrualBleeding",
+   "kind": "category",
+   "ios": "16.0",
+   "label": "persistent_intermenstrual_bleeding",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierPregnancy",
+   "kind": "category",
+   "ios": "14.3",
+   "label": "pregnancy",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierPregnancyTestResult",
+   "kind": "category",
+   "ios": "15.0",
+   "label": "pregnancy_test_result",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierProgesteroneTestResult",
+   "kind": "category",
+   "ios": "15.0",
+   "label": "progesterone_test_result",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierProlongedMenstrualPeriods",
+   "kind": "category",
+   "ios": "16.0",
+   "label": "prolonged_menstrual_periods",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierRapidPoundingOrFlutteringHeartbeat",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "rapid_pounding_or_fluttering_heartbeat",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierRunnyNose",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "runny_nose",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSexualActivity",
+   "kind": "category",
+   "ios": "9.0",
+   "label": "sexual_activity",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierShortnessOfBreath",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "shortness_of_breath",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSinusCongestion",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "sinus_congestion",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSkippedHeartbeat",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "skipped_heartbeat",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSleepAnalysis",
+   "kind": "category",
+   "ios": "8.0",
+   "label": "sleep_analysis",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSleepApneaEvent",
+   "kind": "category",
+   "ios": "18.0",
+   "label": "sleep_apnea_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSleepChanges",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "sleep_changes",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierSoreThroat",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "sore_throat",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierToothbrushingEvent",
+   "kind": "category",
+   "ios": "13.0",
+   "label": "toothbrushing_event",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierVaginalDryness",
+   "kind": "category",
+   "ios": "14.0",
+   "label": "vaginal_dryness",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierVomiting",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "vomiting",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierWheezing",
+   "kind": "category",
+   "ios": "13.6",
+   "label": "wheezing",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierActivityMoveMode",
+   "kind": "characteristic",
+   "ios": "14.0",
+   "label": "activity_move_mode",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierBiologicalSex",
+   "kind": "characteristic",
+   "ios": "8.0",
+   "label": "biological_sex",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierBloodType",
+   "kind": "characteristic",
+   "ios": "8.0",
+   "label": "blood_type",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierDateOfBirth",
+   "kind": "characteristic",
+   "ios": "8.0",
+   "label": "date_of_birth",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierFitzpatrickSkinType",
+   "kind": "characteristic",
+   "ios": "9.0",
+   "label": "fitzpatrick_skin_type",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCharacteristicTypeIdentifierWheelchairUse",
+   "kind": "characteristic",
+   "ios": "10.0",
+   "label": "wheelchair_use",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCorrelationTypeIdentifierBloodPressure",
+   "kind": "correlation",
+   "ios": "8.0",
+   "label": "blood_pressure",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKCorrelationTypeIdentifierFood",
+   "kind": "correlation",
+   "ios": "8.0",
+   "label": "food",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKElectrocardiogramType",
+   "kind": "electrocardiogram",
+   "ios": "14.0",
+   "label": "electrocardiogram",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierActiveEnergyBurned",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "active_energy_burned",
+   "default_unit": "kcal",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleExerciseTime",
+   "kind": "quantity",
+   "ios": "9.3",
+   "label": "apple_exercise_time",
+   "default_unit": "min",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleMoveTime",
+   "kind": "quantity",
+   "ios": "14.5",
+   "label": "apple_move_time",
+   "default_unit": "min",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleSleepingBreathingDisturbances",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "apple_sleeping_breathing_disturbances",
+   "default_unit": "count",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleSleepingWristTemperature",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "apple_sleeping_wrist_temperature",
+   "default_unit": "degC",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleStandTime",
+   "kind": "quantity",
+   "ios": "13.0",
+   "label": "apple_stand_time",
+   "default_unit": "min",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAppleWalkingSteadiness",
+   "kind": "quantity",
+   "ios": "15.0",
+   "label": "apple_walking_steadiness",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierAtrialFibrillationBurden",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "atrial_fibrillation_burden",
+   "default_unit": "%",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBasalBodyTemperature",
+   "kind": "quantity",
+   "ios": "9.0",
+   "label": "basal_body_temperature",
+   "default_unit": "degC",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBasalEnergyBurned",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "basal_energy_burned",
+   "default_unit": "kcal",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBloodAlcoholContent",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "blood_alcohol_content",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBloodGlucose",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "blood_glucose",
+   "default_unit": "mg/dL",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBloodPressureDiastolic",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "blood_pressure_diastolic",
+   "default_unit": "mmHg",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBloodPressureSystolic",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "blood_pressure_systolic",
+   "default_unit": "mmHg",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBodyFatPercentage",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "body_fat_percentage",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBodyMass",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "body_mass",
+   "default_unit": "kg",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBodyMassIndex",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "body_mass_index",
+   "default_unit": "count",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierBodyTemperature",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "body_temperature",
+   "default_unit": "degC",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierCrossCountrySkiingSpeed",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "cross_country_skiing_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierCyclingCadence",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "cycling_cadence",
+   "default_unit": "count/min",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierCyclingFunctionalThresholdPower",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "cycling_functional_threshold_power",
+   "default_unit": "W",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierCyclingPower",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "cycling_power",
+   "default_unit": "W",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierCyclingSpeed",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "cycling_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryBiotin",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_biotin",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryCaffeine",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_caffeine",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryCalcium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_calcium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryCarbohydrates",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_carbohydrates",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryChloride",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_chloride",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryCholesterol",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_cholesterol",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryChromium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_chromium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryCopper",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_copper",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryEnergyConsumed",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_energy_consumed",
+   "default_unit": "kcal",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFatMonounsaturated",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_fat_monounsaturated",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFatPolyunsaturated",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_fat_polyunsaturated",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFatSaturated",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_fat_saturated",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFatTotal",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_fat_total",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFiber",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_fiber",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryFolate",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_folate",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryIodine",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_iodine",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryIron",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_iron",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryMagnesium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_magnesium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryManganese",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_manganese",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryMolybdenum",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_molybdenum",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryNiacin",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_niacin",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryPantothenicAcid",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_pantothenic_acid",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryPhosphorus",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_phosphorus",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryPotassium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_potassium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryProtein",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_protein",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryRiboflavin",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_riboflavin",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietarySelenium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_selenium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietarySodium",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_sodium",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietarySugar",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_sugar",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryThiamin",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_thiamin",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminA",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_a",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminB12",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_b12",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminB6",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_b6",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminC",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_c",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminD",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_d",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminE",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_e",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryVitaminK",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_vitamin_k",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryWater",
+   "kind": "quantity",
+   "ios": "9.0",
+   "label": "dietary_water",
+   "default_unit": "mL",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDietaryZinc",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "dietary_zinc",
+   "default_unit": "g",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceCrossCountrySkiing",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "distance_cross_country_skiing",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceCycling",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "distance_cycling",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceDownhillSnowSports",
+   "kind": "quantity",
+   "ios": "11.2",
+   "label": "distance_downhill_snow_sports",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistancePaddleSports",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "distance_paddle_sports",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceRowing",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "distance_rowing",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceSkatingSports",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "distance_skating_sports",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceSwimming",
+   "kind": "quantity",
+   "ios": "10.0",
+   "label": "distance_swimming",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceWalkingRunning",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "distance_walking_running",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierDistanceWheelchair",
+   "kind": "quantity",
+   "ios": "10.0",
+   "label": "distance_wheelchair",
+   "default_unit": "m",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierElectrodermalActivity",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "electrodermal_activity",
+   "default_unit": "S",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierEnvironmentalAudioExposure",
+   "kind": "quantity",
+   "ios": "13.0",
+   "label": "environmental_audio_exposure",
+   "default_unit": "dBASPL",
+   "aggregation": "Discrete (Equivalent Continuous Level)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierEnvironmentalSoundReduction",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "environmental_sound_reduction",
+   "default_unit": "dBASPL",
+   "aggregation": "Discrete (Equivalent Continuous Level)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierEstimatedWorkoutEffortScore",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "estimated_workout_effort_score",
+   "default_unit": "appleEffortScore",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierFlightsClimbed",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "flights_climbed",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierForcedExpiratoryVolume1",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "forced_expiratory_volume1",
+   "default_unit": "L",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierForcedVitalCapacity",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "forced_vital_capacity",
+   "default_unit": "L",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierHeadphoneAudioExposure",
+   "kind": "quantity",
+   "ios": "13.0",
+   "label": "headphone_audio_exposure",
+   "default_unit": "dBASPL",
+   "aggregation": "Discrete (Equivalent Continuous Level)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierHeartRate",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "heart_rate",
+   "default_unit": "count/s",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierHeartRateRecoveryOneMinute",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "heart_rate_recovery_one_minute",
+   "default_unit": "count/min",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "heart_rate_variability_sdnn",
+   "default_unit": "ms",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierHeight",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "height",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierInhalerUsage",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "inhaler_usage",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierInsulinDelivery",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "insulin_delivery",
+   "default_unit": "IU",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierLeanBodyMass",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "lean_body_mass",
+   "default_unit": "kg",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierNikeFuel",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "nike_fuel",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierNumberOfAlcoholicBeverages",
+   "kind": "quantity",
+   "ios": "15.0",
+   "label": "number_of_alcoholic_beverages",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierNumberOfTimesFallen",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "number_of_times_fallen",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierOxygenSaturation",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "oxygen_saturation",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierPaddleSportsSpeed",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "paddle_sports_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierPeakExpiratoryFlowRate",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "peak_expiratory_flow_rate",
+   "default_unit": "L/min",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierPeripheralPerfusionIndex",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "peripheral_perfusion_index",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierPhysicalEffort",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "physical_effort",
+   "default_unit": "kcal/(kg*hr)",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierPushCount",
+   "kind": "quantity",
+   "ios": "10.0",
+   "label": "push_count",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRespiratoryRate",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "respiratory_rate",
+   "default_unit": "count/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRestingHeartRate",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "resting_heart_rate",
+   "default_unit": "count/min",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRowingSpeed",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "rowing_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRunningGroundContactTime",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "running_ground_contact_time",
+   "default_unit": "ms",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRunningPower",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "running_power",
+   "default_unit": "W",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRunningSpeed",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "running_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRunningStrideLength",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "running_stride_length",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierRunningVerticalOscillation",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "running_vertical_oscillation",
+   "default_unit": "cm",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierSixMinuteWalkTestDistance",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "six_minute_walk_test_distance",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierStairAscentSpeed",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "stair_ascent_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierStairDescentSpeed",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "stair_descent_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierStepCount",
+   "kind": "quantity",
+   "ios": "8.0",
+   "label": "step_count",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierSwimmingStrokeCount",
+   "kind": "quantity",
+   "ios": "10.0",
+   "label": "swimming_stroke_count",
+   "default_unit": "count",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierTimeInDaylight",
+   "kind": "quantity",
+   "ios": "17.0",
+   "label": "time_in_daylight",
+   "default_unit": "min",
+   "aggregation": "Cumulative"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierUVExposure",
+   "kind": "quantity",
+   "ios": "9.0",
+   "label": "uv_exposure",
+   "default_unit": null,
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierUnderwaterDepth",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "underwater_depth",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierVO2Max",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "vo2_max",
+   "default_unit": "ml/(kg*min)",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWaistCircumference",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "waist_circumference",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWalkingAsymmetryPercentage",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "walking_asymmetry_percentage",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWalkingDoubleSupportPercentage",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "walking_double_support_percentage",
+   "default_unit": "%",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWalkingHeartRateAverage",
+   "kind": "quantity",
+   "ios": "11.0",
+   "label": "walking_heart_rate_average",
+   "default_unit": "count/min",
+   "aggregation": "Discrete (Temporally Weighted)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWalkingSpeed",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "walking_speed",
+   "default_unit": "m/s",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWalkingStepLength",
+   "kind": "quantity",
+   "ios": "14.0",
+   "label": "walking_step_length",
+   "default_unit": "m",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWaterTemperature",
+   "kind": "quantity",
+   "ios": "16.0",
+   "label": "water_temperature",
+   "default_unit": "degC",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKQuantityTypeIdentifierWorkoutEffortScore",
+   "kind": "quantity",
+   "ios": "18.0",
+   "label": "workout_effort_score",
+   "default_unit": "appleEffortScore",
+   "aggregation": "Discrete (Arithmetic)"
+  },
+  {
+   "identifier": "HKScoredAssessmentTypeIdentifierGAD7",
+   "kind": "scored_assessment",
+   "ios": "18.0",
+   "label": "gad7",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKScoredAssessmentTypeIdentifierPHQ9",
+   "kind": "scored_assessment",
+   "ios": "18.0",
+   "label": "phq9",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKDataTypeIdentifierHeartbeatSeries",
+   "kind": "series",
+   "ios": "13.0",
+   "label": "heartbeat_series",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKWorkoutRouteTypeIdentifier",
+   "kind": "series",
+   "ios": "11.0",
+   "label": "workout_route",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKDataTypeIdentifierStateOfMind",
+   "kind": "state_of_mind",
+   "ios": "18.0",
+   "label": "state_of_mind",
+   "default_unit": null,
+   "aggregation": null
+  },
+  {
+   "identifier": "HKWorkoutTypeIdentifier",
+   "kind": "workout",
+   "ios": "8.0",
+   "label": "workout",
+   "default_unit": null,
+   "aggregation": null
+  }
+ ],
+ "excluded": [
+  {
+   "identifier": "HKDocumentTypeIdentifierCDA",
+   "reason": "clinical document (needs the health-records entitlement)"
+  },
+  {
+   "identifier": "HKCategoryTypeIdentifierAudioExposureEvent",
+   "reason": "deprecated on iOS"
+  }
+ ],
+ "newer_than_ios26": [
+  "HKCategoryTypeIdentifierBleedingAfterMenopause",
+  "HKCategoryTypeIdentifierHypertensionEvent",
+  "HKCategoryTypeIdentifierMenopausalState",
+  "HKQuantityTypeIdentifierHeartRateVariabilityRMSSD"
+ ]
+}

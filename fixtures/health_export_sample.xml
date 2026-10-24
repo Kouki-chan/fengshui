@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC test data (not a real person). Mirrors the structure of Apple's export.xml. -->
+<!DOCTYPE HealthData [
+<!ELEMENT HealthData (ExportDate,Me,(Record|Correlation|Workout|ActivitySummary|ClinicalRecord|Audiogram|VisionPrescription)*)>
+]>
+<HealthData locale="en_US">
+ <ExportDate value="2026-10-24 16:19:00 -0400"/>
+ <Me HKCharacteristicTypeIdentifierDateOfBirth="1991-05-17" HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexFemale" HKCharacteristicTypeIdentifierBloodType="HKBloodTypeNotSet" HKCharacteristicTypeIdentifierFitzpatrickSkinType="HKFitzpatrickSkinTypeNotSet" HKCharacteristicTypeIdentifierCardioFitnessMedicationsUse="None"/>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Test Watch" sourceVersion="10.6.2" device="&lt;&lt;HKDevice: 0x30123abcd&gt;, name:Apple Watch, manufacturer:Apple Inc., model:Watch, hardware:Watch5,9, software:10.6.2&gt;" unit="count/min" creationDate="2026-10-23 07:16:02 -0400" startDate="2026-10-23 07:15:00 -0400" endDate="2026-10-23 07:15:00 -0400" value="62">
+  <MetadataEntry key="HKMetadataKeyHeartRateMotionContext" value="1"/>
+ </Record>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Test Watch" sourceVersion="10.6.2" unit="count/min" creationDate="2026-10-23 07:21:02 -0400" startDate="2026-10-23 07:20:00 -0400" endDate="2026-10-23 07:20:00 -0400" value="64.5"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Test iPhone" sourceVersion="26.0.1" unit="count" creationDate="2026-10-23 12:30:00 -0400" startDate="2026-10-23 12:14:00 -0400" endDate="2026-10-23 12:28:00 -0400" value="1512"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Test iPhone" sourceVersion="26.0.1" unit="count" creationDate="2026-10-23 12:30:00 -0400" startDate="2026-10-23 12:14:00 -0400" endDate="2026-10-23 12:28:00 -0400" value="1512"/>
+ <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Test Watch" unit="ms" creationDate="2026-10-23 03:10:00 -0400" startDate="2026-10-23 03:09:00 -0400" endDate="2026-10-23 03:10:00 -0400" value="48.25">
+  <HeartRateVariabilityMetadataList>
+   <InstantaneousBeatsPerMinute bpm="58" time="3:09:01.12 AM"/>
+   <InstantaneousBeatsPerMinute bpm="60" time="3:09:02.10 AM"/>
+  </HeartRateVariabilityMetadataList>
+ </Record>
+ <Record type="HKQuantityTypeIdentifierRestingHeartRate" sourceName="Test Watch" unit="count/min" startDate="2026-10-23 00:00:00 -0400" endDate="2026-10-23 23:59:00 -0400" value="55"/>
+ <Record type="HKQuantityTypeIdentifierFlightsClimbed" sourceName="Test iPhone" unit="count" startDate="2026-10-23 12:20:00 -0400" endDate="2026-10-23 12:21:00 -0400" value="2"/>
+ <Record type="HKQuantityTypeIdentifierVO2Max" sourceName="Test Watch" unit="mL/min·kg" startDate="2026-10-23 18:40:00 -0400" endDate="2026-10-23 18:40:00 -0400" value="41.2"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test Watch" startDate="2026-10-22 23:05:00 -0400" endDate="2026-10-23 07:01:00 -0400" value="HKCategoryValueSleepAnalysisInBed"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test Watch" startDate="2026-10-22 23:20:00 -0400" endDate="2026-10-23 01:00:00 -0400" value="HKCategoryValueSleepAnalysisAsleepCore"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test Watch" startDate="2026-10-23 01:00:00 -0400" endDate="2026-10-23 02:10:00 -0400" value="HKCategoryValueSleepAnalysisAsleepDeep"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test Watch" startDate="2026-10-23 02:10:00 -0400" endDate="2026-10-23 02:15:00 -0400" value="HKCategoryValueSleepAnalysisAwake"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test Watch" startDate="2026-10-23 02:15:00 -0400" endDate="2026-10-23 06:50:00 -0400" value="HKCategoryValueSleepAnalysisAsleepREM"/>
+ <Record type="HKCategoryTypeIdentifierAppleStandHour" sourceName="Test Watch" startDate="2026-10-23 09:00:00 -0400" endDate="2026-10-23 10:00:00 -0400" value="HKCategoryValueAppleStandHourStood"/>
+ <Record type="HKCategoryTypeIdentifierHeadache" sourceName="Test iPhone" startDate="2026-10-23 15:00:00 -0400" endDate="2026-10-23 16:00:00 -0400" value="HKCategoryValueSeverityMild"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Test iPhone" unit="count" startDate="not a date" endDate="2026-10-23 12:28:00 -0400" value="3"/>
+ <Correlation type="HKCorrelationTypeIdentifierBloodPressure" sourceName="Test Cuff" startDate="2026-10-23 08:00:00 -0400" endDate="2026-10-23 08:00:00 -0400">
+  <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" sourceName="Test Cuff" unit="mmHg" startDate="2026-10-23 08:00:00 -0400" endDate="2026-10-23 08:00:00 -0400" value="118"/>
+  <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" sourceName="Test Cuff" unit="mmHg" startDate="2026-10-23 08:00:00 -0400" endDate="2026-10-23 08:00:00 -0400" value="76"/>
+ </Correlation>
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30.5" durationUnit="min" sourceName="Test Watch" sourceVersion="10.6.2" device="&lt;&lt;HKDevice: 0x30123abcd&gt;, name:Apple Watch, manufacturer:Apple Inc., model:Watch, hardware:Watch5,9, software:10.6.2&gt;" creationDate="2026-10-23 19:01:00 -0400" startDate="2026-10-23 18:30:00 -0400" endDate="2026-10-23 19:00:30 -0400">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutEvent type="HKWorkoutEventTypeSegment" date="2026-10-23 18:30:00 -0400" duration="15" durationUnit="min"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-10-23 18:30:00 -0400" endDate="2026-10-23 19:00:30 -0400" sum="5.01" unit="km"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierHeartRate" startDate="2026-10-23 18:30:00 -0400" endDate="2026-10-23 19:00:30 -0400" average="152" minimum="110" maximum="171" unit="count/min"/>
+  <WorkoutRoute sourceName="Test Watch" startDate="2026-10-23 18:30:00 -0400" endDate="2026-10-23 19:00:30 -0400">
+   <FileReference path="/workout-routes/route_2026-10-23_6.30pm.gpx"/>
+  </WorkoutRoute>
+ </Workout>
+ <ActivitySummary dateComponents="2026-10-23" activeEnergyBurned="512.4" activeEnergyBurnedGoal="500" activeEnergyBurnedUnit="Cal" appleMoveTime="0" appleMoveTimeGoal="0" appleExerciseTime="41" appleExerciseTimeGoal="30" appleStandHours="11" appleStandHoursGoal="12"/>
+</HealthData>
