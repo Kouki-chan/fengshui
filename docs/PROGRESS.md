@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Plan | done | — |
 | 0 Foundations | done (tag `phase-0`) | PASS |
-| 1 Database + HealthKit | — | — |
+| 1 Database + HealthKit | done (tag `phase-1`) | PASS |
 | 2 Context | — | — |
 | 3 Watch | — | — |
 | 4 Engine | — | — |
@@ -53,3 +53,19 @@
 - Disk: 103 GB free after the iOS 26.0 + watchOS 26.0 runtimes (11 GB + ~10 GB).
 
 **Deferred to their phases:** the protocol + fake set grows per phase (Clock now; HealthKit in Phase 1, location/motion in 2, watch sensors and transport in 3, notifications in 5, network in 6–7). Scenario fixtures arrive with `synth.py` in Phase 1.
+
+### Phase 1 — Database + HealthKit (2026-10-24)
+**Built:** GRDB `AppDatabase` (WAL, busy_timeout 5000, FKs) whose migrator executes the shared `schema_v1.sql`; `HealthStore` protocol with `HKHealthStoreAdapter` (anchored queries, workouts + routes, heartbeat series, ECG, state of mind, scored assessments, characteristics, preferred units with header-derived fallbacks, observer queries + `.immediate` background delivery) and `FakeHealthStore`; `HealthSync` actor (5,000-row pages, one transaction per page with its anchor, resumable, deletions → `deleted = 1`); `ExportAdoption` (D-06); `BackgroundDelivery` for the six spec types, plus the fallback on launch, foreground, `BGAppRefreshTask` and `BGProcessingTask`; onboarding (welcome → Health → backfill progress), Settings → Debug (counts per label, tables, last sync per type, event log); `-FengshuiTestMode <scenario>` with bundled synthetic scenarios. HealthKit catalog of 204 types generated from the SDK headers (D-10). Task B importer.
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| Python opens a DB created by the Swift migrations and passes the engine schema check (in the simulator via embedded Python, and on the Mac via `test_swift_db.py`, with table SQL identical) | PASS |
+| Label mapping matches the Python reference for all 204 iOS ≤ 26 SDK identifiers, plus 86 workout activity names | PASS |
+| Fake-store sync: batching (11 pages / 1,050 rows), resume after interruption (no refetch, no duplicates), anchors, incremental, deletions, routes, characteristics, export-row adoption, background-delivery wake | PASS |
+| Importer on the synthetic `export.xml` (records, categories, HRV beats, correlation, workout + GPX route, `<Me>`, activity summary, duplicates, bad dates, re-import, newer export, `--csv`, zip untouched); output passes the engine schema check | PASS (13 tests) |
+| UI test: onboarding → backfill progress → debug counts (test mode) | PASS |
+
+**Real export (Task B):** imported locally to `~/Desktop/HealthExport/fengshui_health.sqlite`: 38 labels, no warnings, about 100 s, peak memory 124 MB (streaming confirmed on a 1.2 GB `export.xml`). A re-import added 0 rows (PASS). Nothing derived from it is in the repo.
+
+**Bug found by the UI test and fixed:** a Swift exclusivity violation when backfill finished (read and write of the same `@Observable` property in one statement), plus a race where a late progress update could overwrite the finished state. Completion now has its own flag.
