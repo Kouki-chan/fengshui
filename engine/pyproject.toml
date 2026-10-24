@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fengshui_engine"
+version = "0.1.0"
+description = "Fengshui inference engine (pure Python; runs on iPhone and Mac)"
+requires-python = ">=3.13"
+dependencies = ["tzdata"]
+
+[tool.setuptools.packages.find]
+include = ["fengshui_engine*"]
+
+[tool.setuptools.package-data]
+fengshui_engine = ["*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
