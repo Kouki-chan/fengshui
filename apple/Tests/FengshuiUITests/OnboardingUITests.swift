@@ -31,6 +31,12 @@ final class OnboardingUITests: XCTestCase {
         app.buttons["onboarding.start"].tap()
         app.buttons["onboarding.health"].tap()
 
+        // Recording preferences (Phase 3): keep the defaults.
+        let recContinue = app.buttons["rec.continue"]
+        XCTAssertTrue(app.switches["rec.accel"].waitForExistence(timeout: 5))
+        while !recContinue.isHittable { app.swipeUp() }
+        recContinue.tap()
+
         // Places: Home + Work from "current location", one named custom place.
         XCTAssertTrue(app.buttons["places.set.home"].waitForExistence(timeout: 5))
         setPlace(app, "places.set.home")

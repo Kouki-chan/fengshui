@@ -274,3 +274,23 @@ func makeRecorder(_ name: String, battery: FakeBattery = FakeBattery(), prefs: R
         #expect(ratio > 2.5)
     }
 }
+
+@Suite struct CompassTests {
+    // Flat watch, field pointing north (+y) and dipping down.
+    @Test func headingFromMagnetometerAndGravity() {
+        let down = [0.0, 0, -1]
+        #expect(abs(Compass.heading(gravity: down, magnetic: [0, 30, -15])! - 0) < 1e-6)
+        #expect(abs(Compass.heading(gravity: down, magnetic: [-30, 0, -15])! - 90) < 1e-6)   // top points east
+        #expect(abs(Compass.heading(gravity: down, magnetic: [0, -30, -15])! - 180) < 1e-6)
+        #expect(abs(Compass.heading(gravity: down, magnetic: [30, 0, -15])! - 270) < 1e-6)
+    }
+
+    @Test func tiltCompensated() {
+        // Same "north" pose tilted 30° about x: heading stays 0.
+        let a = 30.0 * .pi / 180
+        let rot = { (v: [Double]) in [v[0], v[1] * cos(a) - v[2] * sin(a), v[1] * sin(a) + v[2] * cos(a)] }
+        let h = Compass.heading(gravity: rot([0, 0, -1]), magnetic: rot([0, 30, -15]))!
+        #expect(min(h, 360 - h) < 1e-6)
+        #expect(Compass.heading(gravity: [0, 0, -1], magnetic: [0, 0, -40]) == nil)
+    }
+}
