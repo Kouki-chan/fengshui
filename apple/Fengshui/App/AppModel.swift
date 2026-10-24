@@ -6,8 +6,9 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
+    /// Spec §15 order; steps for later phases are inserted where they belong.
     enum OnboardingStep: String, CaseIterable, Codable {
-        case welcome, health, backfill
+        case welcome, health, places, backfill
     }
 
     let env: AppEnvironment
@@ -29,6 +30,10 @@ final class AppModel {
         } catch {
             env.log.add("health_auth_error", "\(error)")
         }
+        step = .places
+    }
+
+    func placesDone() async {
         step = .backfill
         await runBackfill()
     }
@@ -52,13 +57,17 @@ final class AppModel {
     func finishOnboarding() {
         try? env.db.setPreference("onboarding_done", true, now: env.clock.now)
         onboardingDone = true
-        Task { await env.delivery.register() }
+        Task {
+            await env.delivery.register()
+            await env.places.start()
+        }
     }
 
     /// Launch / foreground hook (fallback for background delivery, spec §6.1).
     func appBecameActive() async {
         guard onboardingDone else { return }
         await env.delivery.register()
+        await env.places.start()
         await env.delivery.syncNow(trigger: "foreground")
     }
 }

@@ -70,6 +70,10 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section("Context") {
+                NavigationLink("Places") { PlacesView(env: model.env) }
+                    .accessibilityIdentifier("settings.places")
+            }
             Section("Debug") {
                 NavigationLink("Data & sync") { DebugView(env: model.env) }
                     .accessibilityIdentifier("settings.debug")

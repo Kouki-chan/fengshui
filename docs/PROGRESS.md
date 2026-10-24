@@ -7,7 +7,7 @@
 | Plan | done | — |
 | 0 Foundations | done (tag `phase-0`) | PASS |
 | 1 Database + HealthKit | done (tag `phase-1`) | PASS |
-| 2 Context | — | — |
+| 2 Context | done (tag `phase-2`) | PASS |
 | 3 Watch | — | — |
 | 4 Engine | — | — |
 | 5 Notifications | — | — |
@@ -69,3 +69,15 @@
 **Real export (Task B):** imported locally to `~/Desktop/HealthExport/fengshui_health.sqlite`: 38 labels, no warnings, about 100 s, peak memory 124 MB (streaming confirmed on a 1.2 GB `export.xml`). A re-import added 0 rows (PASS). Nothing derived from it is in the repo.
 
 **Bug found by the UI test and fixed:** a Swift exclusivity violation when backfill finished (read and write of the same `@Observable` property in one statement), plus a race where a late progress update could overwrite the finished state. Completion now has its own flag.
+
+### Phase 2 — Context (2026-10-24)
+**Built:** `LocationProvider` protocol with `CoreLocationProvider` (visit monitoring, significant-location-change, one-shot `requestLocation` for "use current location", geofences through `CLMonitor` with `CircularGeographicCondition`, re-created by name at launch so region events relaunch the app) and `FakeLocationProvider`; `PlaceService` (Home/Work replace-in-place, custom places, nearest-within-radius matching, re-matching visits when places change, open/close visit handling, Home-entry hook for wind-down, max 20 geofences, idempotent start); `MotionHistory` (`CMMotionActivityManager` → merged segments) + `MotionImporter` (since the last stored segment, 7-day first look-back, upsert on `(start_ts, activity)`, runs after every sync); engine task `place_suggestions` (greedy 150 m clustering of unmatched visits ≥ 5 min, ≥ 3 visits, skips covered or dismissed spots); `config.py`; per-task transactions in the engine runner; places onboarding step and Settings → Places with a MapKit pin drop, radius and suggestions (name / dismiss). Screen Time: deferred (paid account).
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| Visit-to-place matching (Swift + Python helper, same rule) | PASS |
+| Place-suggestion clustering (Python): finds the synthetic gym + café in `typical_week`, idempotent, respects dismissals, ≥ 3 visits, ignores pass-throughs | PASS (6 tests) |
+| Geofence registration with the fake location manager (add, replace Home, suggestions not monitored, delete) and the Home-entry hook | PASS |
+| Motion import idempotence (re-import, open segment closed later, incremental window) | PASS |
+| UI test: places onboarding (Home, Work, custom place) → backfill → debug → places listed in Settings | PASS |
