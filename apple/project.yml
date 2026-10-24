@@ -143,7 +143,10 @@ targets:
   FengshuiWatchTests:
     type: bundle.unit-test
     platform: watchOS
-    sources: [Tests/FengshuiWatchTests]
+    sources:
+      - Tests/FengshuiWatchTests
+      # The same watch-pipeline suite as `swift test`, run in the watch simulator.
+      - FengshuiKit/Tests/FengshuiKitTests/WatchPipelineTests.swift
     dependencies:
       - target: FengshuiWatch
       - package: FengshuiKit

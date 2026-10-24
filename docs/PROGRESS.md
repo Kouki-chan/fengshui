@@ -8,7 +8,7 @@
 | 0 Foundations | done (tag `phase-0`) | PASS |
 | 1 Database + HealthKit | done (tag `phase-1`) | PASS |
 | 2 Context | done (tag `phase-2`) | PASS |
-| 3 Watch | — | — |
+| 3 Watch | done (tag `phase-3`) | PASS |
 | 4 Engine | — | — |
 | 5 Notifications | — | — |
 | 6 Server | — | — |
@@ -81,3 +81,19 @@
 | Geofence registration with the fake location manager (add, replace Home, suggestions not monitored, delete) and the Home-entry hook | PASS |
 | Motion import idempotence (re-import, open segment closed later, incremental window) | PASS |
 | UI test: places onboarding (Home, Work, custom place) → backfill → debug → places listed in Settings | PASS |
+
+### Phase 3 — Watch (2026-10-24)
+**Built:** `RecordingPreferences` (onboarding step + Settings → Recording, sanitized, mirrored with `updateApplicationContext`); all watch logic in FengshuiKit so it runs in every test layer: `MinuteChunker` (per-minute chunks, gap detection), `ChunkContainer` (FSC1 hourly file = JSON index + fsr1 payloads), `WatchRecorder` (tier 1 re-armed on every wake + harvest from a watermark of complete minutes, 2-minute lag, at most 6 h per wake, retention-limited first run; tier 2 snapshot when due, battery guard < 30 % / Low Power Mode, shortened or skipped to fit the time budget; outbox deleted only after the ack, stale files resent after 6 h; recorder gaps logged in the container, not worked around), `SessionAssembler` (tier 3), `Compass` (tilt-compensated heading from magnetometer + gravity). Watch target: `CMSensorRecorder` adapter, snapshot adapter (device motion + magnetometer + altimeter, **no location**, D-11), `HKWorkoutSession(.other)` + live builder for HR in sessions, WCSession link (files out; prefs + acks in), `WKApplicationRefreshBackgroundTask` handling at the chosen interval, status UI with session start/stop, ClockKit complication (D-07). Phone: `WatchImporter` (upsert on `(minute_id, sensor, tier)`, archived rows untouched, gap log), `WCPhoneLink` (copies the file, imports, acknowledges with `transferUserInfo`), `FakeWatchLink`.
+
+**Owner request handled:** the watch doesn't use location at all. Its compass comes from the magnetometer, and all location context comes from the iPhone (D-11).
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| Tier logic with fake sensors: re-arm every wake, harvest watermark (incremental, unchanged on failure), per-wake cap, battery guard (29 %, LPM, 30 % OK), snapshot interval + time budget (shortened 8 s → 4 s; skipped below 3 s), sensors off → no tier 1 | PASS (Mac `swift test` **and** the watchOS 26 simulator) |
+| Transfer → phone import → ack → watch deletes (in-process loopback transport; simulator WatchConnectivity not used, see TEST_STRATEGY) | PASS |
+| Phone import idempotent; archived minutes not overwritten; gap log kept | PASS |
+| Preferences mirrored to the watch | PASS |
+| Compression ratio, synthetic 50 Hz trace (desk / walk / run): **3.08× vs float32**, 1.54× on top of int16 packing | measured |
+| Compression ratio, owner's real Sensor Logger watch recordings (local only, resampled to 50 Hz): **3.18–3.52× vs float32**, about 10 KiB/min (~14 MB/day of tier 1) | measured |
+| Watch app builds for watchOS 10 target; complication compiles (ClockKit) | PASS |

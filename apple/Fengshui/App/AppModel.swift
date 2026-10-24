@@ -8,7 +8,7 @@ import Observation
 final class AppModel {
     /// Spec §15 order; steps for later phases are inserted where they belong.
     enum OnboardingStep: String, CaseIterable, Codable {
-        case welcome, health, places, backfill
+        case welcome, health, recording, places, backfill
     }
 
     let env: AppEnvironment
@@ -30,7 +30,7 @@ final class AppModel {
         } catch {
             env.log.add("health_auth_error", "\(error)")
         }
-        step = .places
+        step = .recording
     }
 
     func placesDone() async {

@@ -70,6 +70,10 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section("Watch") {
+                NavigationLink("Recording") { RecordingView(env: model.env) }
+                    .accessibilityIdentifier("settings.recording")
+            }
             Section("Context") {
                 NavigationLink("Places") { PlacesView(env: model.env) }
                     .accessibilityIdentifier("settings.places")

@@ -13,12 +13,14 @@ final class AppEnvironment: Sendable {
     let location: LocationProvider
     let places: PlaceService
     let motion: MotionImporter
+    let watchImporter: WatchImporter
+    let watchLink: WatchLink
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
 
     init(db: AppDatabase, clock: Clock, health: HealthStore, location: LocationProvider, motion: MotionHistory,
-         testScenario: String?, timeZone: TimeZone) {
+         watchLink makeLink: (WatchImporter, EventLog) -> WatchLink, testScenario: String?, timeZone: TimeZone) {
         self.db = db
         self.clock = clock
         self.health = health
@@ -32,6 +34,9 @@ final class AppEnvironment: Sendable {
         let motionImporter = MotionImporter(db: db, history: motion, clock: clock)
         self.motion = motionImporter
         places = PlaceService(db: db, location: location, log: log, clock: clock)
+        let importer = WatchImporter(db: db, clock: clock)
+        watchImporter = importer
+        watchLink = makeLink(importer, log)
         delivery = BackgroundDelivery(sync: sync, store: health, log: log) { trigger in
             // Every sync also pulls iPhone motion history (spec §6.3).
             do {
@@ -46,6 +51,18 @@ final class AppEnvironment: Sendable {
 
     var isTestMode: Bool { testScenario != nil }
 
+    // MARK: Recording preferences (spec §7.2)
+
+    func recordingPreferences() -> RecordingPreferences {
+        ((try? db.preference(RecordingPreferences.key, as: RecordingPreferences.self)) ?? RecordingPreferences()).sanitized()
+    }
+
+    func saveRecordingPreferences(_ p: RecordingPreferences) {
+        let clean = p.sanitized()
+        try? db.setPreference(RecordingPreferences.key, clean, now: clock.now)
+        do { try watchLink.push(prefs: clean) } catch { log.add("watch_prefs_error", "\(error)") }
+    }
+
     /// Builds the environment for this process from its launch arguments.
     static func make(arguments: [String] = ProcessInfo.processInfo.arguments) throws -> AppEnvironment {
         if let i = arguments.firstIndex(of: "-FengshuiTestMode"), i + 1 < arguments.count {
@@ -57,11 +74,17 @@ final class AppEnvironment: Sendable {
             return AppEnvironment(db: db, clock: FixedClock(Date(timeIntervalSince1970: scenario.now)),
                                   health: FakeHealthStore(scenario: scenario),
                                   location: FakeLocationProvider(coordinate: (home?.lat ?? 40.1, home?.lon ?? -75.2)),
-                                  motion: FakeMotionHistory(scenario: scenario), testScenario: name,
+                                  motion: FakeMotionHistory(scenario: scenario), watchLink: { _, _ in FakeWatchLink() },
+                                  testScenario: name,
                                   timeZone: TimeZone(identifier: scenario.tz) ?? .current)
         }
         return AppEnvironment(db: try AppDatabase(path: AppDatabase.defaultURL().path), clock: SystemClock(),
                               health: HKHealthStoreAdapter(), location: CoreLocationProvider(),
-                              motion: CoreMotionHistory(), testScenario: nil, timeZone: .current)
+                              motion: CoreMotionHistory(),
+                              watchLink: { importer, log in
+                                  // Engine trigger after watch imports is wired in Phase 4.
+                                  WCPhoneLink(importer: importer, log: log, afterImport: {})
+                              },
+                              testScenario: nil, timeZone: .current)
     }
 }
