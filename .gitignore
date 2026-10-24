@@ -1,0 +1,38 @@
+# --- Private data: never commit (see docs/SPEC.md, Task A) ---
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+*.zip
+export.xml
+export_cda.xml
+.env
+.env.*
+apple/Config/Local.xcconfig
+Config/Local.xcconfig
+server/diagnostics/
+server/data/
+test_data/
+testdata/
+
+# --- Local tools and build output ---
+.tools/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+DerivedData/
+.build/
+.swiftpm/
+*.xcodeproj/
+*.xcworkspace/
+apple/Python/
+xcuserdata/
+*.xcresult
+
+# --- macOS ---
+.DS_Store
