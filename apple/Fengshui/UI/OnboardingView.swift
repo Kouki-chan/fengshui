@@ -11,6 +11,7 @@ struct OnboardingView: View {
                 switch model.step {
                 case .welcome: welcome
                 case .health: health
+                case .places: PlacesView(env: model.env, onboarding: true) { Task { await model.placesDone() } }
                 case .backfill: BackfillView(model: model)
                 }
             }

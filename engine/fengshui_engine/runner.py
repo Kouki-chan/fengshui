@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import time
 
-from . import ENGINE_VERSION, db
+from . import ENGINE_VERSION, db, places
 
-# name -> callable(conn, ctx) -> dict(rows_written=..., warnings=[...])
-TASKS: dict = {}
+# name -> callable(conn, ctx) -> dict(rows_written=..., warnings=[...]).
+# Order matters when running "all": features before activity before wind_down.
+TASKS: dict = {
+    "place_suggestions": places.run,
+}
 
 
 def run(db_path: str, *, now_ts: float, tz: str, where: str,
@@ -26,7 +29,14 @@ def run(db_path: str, *, now_ts: float, tz: str, where: str,
             if name in unknown:
                 continue
             t0 = time.perf_counter()
-            result = TASKS[name](conn, ctx) or {}
+            # One transaction per task: a failed task leaves no partial rows behind.
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                result = TASKS[name](conn, ctx) or {}
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
             result["seconds"] = round(time.perf_counter() - t0, 4)
             summary["tasks"][name] = result
             summary["warnings"].extend(result.pop("warnings", []))
