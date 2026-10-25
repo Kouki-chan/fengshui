@@ -69,6 +69,15 @@ final class OnboardingUITests: XCTestCase {
         // Today shows tonight's plan once the post-onboarding engine run finishes.
         XCTAssertTrue(app.staticTexts["Start winding down"].waitForExistence(timeout: 30))
 
+        // Data tab: live tiles from the backfilled samples; a type opens its detail.
+        app.tabBars.buttons["Data"].tap()
+        let hrTile = app.buttons["data.vital.heart_rate"]
+        XCTAssertTrue(hrTile.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["data.watch"].exists)
+        hrTile.tap()
+        XCTAssertTrue(app.navigationBars["Heart rate"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
         app.tabBars.buttons["Settings"].tap()
         tapScrolling(app, "settings.debug")
         let hr = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'heart_rate'")).firstMatch

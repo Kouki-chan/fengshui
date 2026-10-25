@@ -37,11 +37,14 @@ protocol LocationProvider: AnyObject, Sendable {
 /// as long as a monitor with the same name is re-created at launch.
 final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerDelegate, @unchecked Sendable {
     private let manager = CLLocationManager()
-    /// Exactly one CLMonitor per name may be open; a second open fails ("Monitor name is not
-    /// valid"). Everything goes through this one lazily created instance.
-    private let monitorLock = NSLock()
-    private var monitorTask: Task<CLMonitor, Never>?
-    private var eventsStarted = false
+    /// Exactly one CLMonitor per name may be open per process; a second open fails ("Monitor
+    /// name is not valid" / "already in use"). Every provider goes through this one lazily
+    /// created instance, and one events loop forwards to the newest handler.
+    private static let monitorLock = NSLock()
+    nonisolated(unsafe) private static var monitorTask: Task<CLMonitor, Never>?
+    nonisolated(unsafe) private static var eventsStarted = false
+    nonisolated(unsafe) private static var regionHandler: (@Sendable (LocationEvent) async -> Void)?
+    /// Visits and significant changes come from this provider's own manager.
     private var handler: (@Sendable (LocationEvent) async -> Void)?
     private var authContinuation: CheckedContinuation<LocationAuthorization, Never>?
     private var locationContinuation: CheckedContinuation<(lat: Double, lon: Double), Error>?
@@ -89,15 +92,17 @@ final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerD
 
     func start(_ handler: @escaping @Sendable (LocationEvent) async -> Void) async {
         self.handler = handler
+        Self.monitorLock.withLock { Self.regionHandler = handler }
         await MainActor.run {
             manager.startMonitoringVisits()
             manager.startMonitoringSignificantLocationChanges()
         }
         let m = await sharedMonitor()
-        let first = monitorLock.withLock { defer { eventsStarted = true }; return !eventsStarted }
+        let first = Self.monitorLock.withLock { defer { Self.eventsStarted = true }; return !Self.eventsStarted }
         guard first else { return }
         Task {
             for try await e in await m.events {
+                guard let handler = Self.monitorLock.withLock({ Self.regionHandler }) else { continue }
                 await handler(.region(identifier: e.identifier, entered: e.state == .satisfied,
                                       at: e.date.timeIntervalSince1970))
             }
@@ -120,10 +125,10 @@ final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerD
     }
 
     private func sharedMonitor() async -> CLMonitor {
-        let task = monitorLock.withLock {
-            if let t = monitorTask { return t }
+        let task = Self.monitorLock.withLock {
+            if let t = Self.monitorTask { return t }
             let t = Task { await CLMonitor(Self.monitorName) }
-            monitorTask = t
+            Self.monitorTask = t
             return t
         }
         return await task.value

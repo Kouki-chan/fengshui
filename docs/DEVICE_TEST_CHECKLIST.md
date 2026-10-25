@@ -66,6 +66,10 @@ Open **Fengshui** on the iPhone.
 | B8 | Wait for the backfill (your history is large: about 10–20 min). Keep the app open and the phone plugged in | "… samples · N/N types", then **Continue** becomes active | If it stops with an error, tap **Retry**: it resumes where it stopped |
 | B9 | **Continue** | Today screen; within a minute "Start winding down …" with a time | Pull down to refresh |
 
+### B9b. Data tab
+Tap **Data**. ✅ Vitals, Today and Last night tiles appear, and the status line says "Live · updated …". Tap a tile to see its chart and samples. Open Fengshui on the watch, then tap **Ask watch to send now**: "Last data from watch" should change to "just now" within a minute. Start a session on the watch: a pulsing **live heart rate** card appears on the phone.
+❌ "No data yet": the Health permission isn't granted. Settings → Privacy & Security → Health → Fengshui → Turn On All.
+
 ### B10. Connect the app to the Mac
 Settings → **Server & compute** → **Find on this network** (or type `http://<your-mac>.local:8765`) → paste the **token** from A5 → **Save & test connection**.
 ✅ **Expected:** "Connected ✓". Allow the **Local Network** prompt if it appears.

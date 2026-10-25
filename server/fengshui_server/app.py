@@ -213,5 +213,6 @@ async def _advertise(port: int):
                        addresses=[socket.inet_aton(addr)], port=port,
                        properties={"engine": ENGINE_VERSION, "path": "/"})
     zc = AsyncZeroconf()
-    await zc.async_register_service(info)
+    # A second server, or a restart before the old record expires, gets "… (2)" instead of failing.
+    await zc.async_register_service(info, allow_name_change=True)
     return zc

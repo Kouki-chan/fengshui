@@ -57,6 +57,9 @@ struct MainTabs: View {
             Tab("Today", systemImage: "sun.max") {
                 NavigationStack { TodayView(env: model.env) }
             }
+            Tab("Data", systemImage: "waveform.path.ecg") {
+                NavigationStack { DataView(env: model.env) }
+            }
             Tab("Ask", systemImage: "bubble.left.and.text.bubble.right") {
                 NavigationStack { AskView(env: model.env) }
             }

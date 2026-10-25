@@ -162,3 +162,8 @@
 **Gate:** `scripts/test_all.sh` fully green, 12 layers in 236 s, no expected failures. Release device build **45 MB** (12.9 MB zipped).
 
 **Next:** the owner's device test (`docs/DEVICE_TEST_CHECKLIST.md`). Only the owner can do: sign in to Xcode and set the Team ID, Developer Mode on both devices, permissions, 3 days of wear.
+
+### Device-test follow-up — Data tab (2026-10-25)
+**Built:** Data tab with live database-driven updates, per-type detail pages, watch "send now" and live session heart rate (D-18). **Fixed:** Bonjour name clash when a second server, or a quick restart, registers the same name (`allow_name_change`); the CLMonitor is now shared per process, not per provider (the test host's provider and the test's provider clashed: "Monitor named FengshuiPlaces is already in use").
+
+**Gate:** `scripts/test_all.sh --no-live` fully green (12 layers, 245 s). iOS unit 77 (5 new: snapshot units / per-source totals / sleep / watch coverage, empty DB, observation emits after a write, cumulative detail, unit normalisation); end-to-end UI test opens the Data tab and a heart-rate detail page.

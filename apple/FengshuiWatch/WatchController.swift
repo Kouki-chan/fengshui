@@ -8,6 +8,7 @@ import WatchKit
 final class WatchSessionLink: NSObject, WatchFileTransport, WCSessionDelegate, @unchecked Sendable {
     var onPrefs: (@Sendable (RecordingPreferences) -> Void)?
     var onAck: (@Sendable (String) -> Void)?
+    var onFlush: (@Sendable () -> Void)?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -20,6 +21,12 @@ final class WatchSessionLink: NSObject, WatchFileTransport, WCSessionDelegate, @
         WCSession.default.transferFile(file, metadata: metadata)
     }
 
+    /// Live session heart rate for the phone's Data tab; dropped when the phone isn't reachable.
+    func sendLive(heartRate: Double, ts: Double) {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated, WCSession.default.isReachable else { return }
+        WCSession.default.sendMessage(["live_hr": heartRate, "ts": ts], replyHandler: nil, errorHandler: nil)
+    }
+
     var pendingTransfers: Int { WCSession.isSupported() ? WCSession.default.outstandingFileTransfers.count : 0 }
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
@@ -28,6 +35,10 @@ final class WatchSessionLink: NSObject, WatchFileTransport, WCSessionDelegate, @
 
     func session(_ session: WCSession, didReceiveApplicationContext ctx: [String: Any]) {
         if let p = RecordingPreferences.from(context: ctx) { onPrefs?(p) }
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if message["flush"] as? Bool == true { onFlush?() }
     }
 
     func session(_ session: WCSession, didReceiveUserInfo info: [String: Any] = [:]) {
@@ -61,8 +72,10 @@ final class WatchController {
                                  transport: link, state: DefaultsStore(), clock: SystemClock(), outboxDir: dir, prefs: prefs)
         link.onPrefs = { p in Task { @MainActor in await WatchController.shared.apply(p) } }
         link.onAck = { id in Task { @MainActor in await WatchController.shared.ack(id) } }
+        link.onFlush = { Task { @MainActor in await WatchController.shared.wake() } }
         link.activate()
         session.recorder = recorder
+        session.onLiveHR = { [link] bpm, ts in link.sendLive(heartRate: bpm, ts: ts) }
     }
 
     func apply(_ p: RecordingPreferences) async {

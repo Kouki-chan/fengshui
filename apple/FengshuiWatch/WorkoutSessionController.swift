@@ -23,6 +23,8 @@ final class WorkoutSessionController: NSObject {
     var running = false
     var startedAt: Date?
     var lastHR: Double?
+    /// Called with every HR sample while a session runs (the controller streams it to the phone).
+    var onLiveHR: ((Double, Double) -> Void)?
     var error: String?
 
     func start(prefs: RecordingPreferences) async {
@@ -118,6 +120,7 @@ extension WorkoutSessionController: HKLiveWorkoutBuilderDelegate {
         let s = SensorSample(ts: Date().timeIntervalSince1970, values: [bpm])
         Task { @MainActor in
             self.lastHR = bpm
+            self.onLiveHR?(bpm, s.ts)
             await self.assembler.add(.hrSession, [s])
         }
     }
