@@ -203,3 +203,16 @@ def test_length_adapts_to_latency(tmp_path, lat, expected):
     fengshui_engine.run(str(p), now_ts=base + 7 * 86400 + 12 * 3600, tz="America/New_York", where="phone",
                         tasks=["wind_down_outcome"])
     assert db.get_state(conn, W.LEN_KEY) == expected
+
+
+def test_user_length_preference_applied_once(built, tmp_path):
+    p, sc = built("typical_week", tmp_path, raw=False)
+    conn = db.connect(str(p))
+    conn.execute("INSERT INTO preferences (key, value_json, updated_at) VALUES ('wind_down_len_user', ?, 0)",
+                 (json.dumps({"value": 90, "set_at": 100.0}),))
+    run(p, sc, tasks=("wind_down",))
+    (v, _, _), = plans(conn)
+    assert v["wind_down_len_min"] == 90 and db.get_state(conn, W.LEN_KEY) == "90.0"
+    db.set_state(conn, W.LEN_KEY, "45.0")          # learning later changes it…
+    run(p, sc, now=sc["now"] + 60, tasks=("wind_down",))
+    assert db.get_state(conn, W.LEN_KEY) == "45.0"  # …and the old preference isn't re-applied

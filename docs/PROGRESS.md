@@ -10,7 +10,7 @@
 | 2 Context | done (tag `phase-2`) | PASS |
 | 3 Watch | done (tag `phase-3`) | PASS |
 | 4 Engine | done (tag `phase-4`) | PASS |
-| 5 Notifications | — | — |
+| 5 Notifications | done (tag `phase-5`) | PASS |
 | 6 Server | — | — |
 | 7 Claude | — | — |
 | 8 Hardening | — | — |
@@ -111,3 +111,19 @@
 | Real-data check (local `engine_check.md`) | ran, no errors |
 
 **Real-data check summary (owner's export, last 30 days; percentages only):** unknown minutes 0.2 %. Walking recall inside the owner's Apple Watch walking workouts 62 % (export has no phone motion or raw data, so steps + HR only). Auto-detected Oura "walking" workouts aren't walks (D-15). Cycling is undetectable without phone motion or raw data (3 short workouts). Wake prediction within 30 min on 70 % of nights, mean absolute error 50 min. Plans were "followed" (in bed within 30 min of target) on 24 % of nights. The learning step shortened wind-down to 30 min (short measured latencies). Thresholds changed: only the multi-source step fix (D-14), which is a bug fix, not tuning.
+
+### Phase 5 — Notifications (2026-10-24)
+**Built:** `NotificationCenter` protocol (UNUserNotificationCenter + fake); `WindDownScheduler` (calendar trigger at `wind_down_start` in the local time zone, identifier `wind_down_<night_of>`, rescheduled when the engine supersedes the plan, cancelled when reminders are switched off, never scheduled in the past; Home-arrival prompt `wind_down_home_<night_of>` once per night within 90 min after the start unless tonight's prompt was dismissed; every schedule / cancel / delivery written to `notifications_log`; delay = delivered − scheduled); engine runs call it after every run; app delegate records `willPresent`, taps and dismissals (custom dismiss action), and the delivered list is reconciled on foreground. Signing expiry: reads `embedded.mobileprovision`, Settings shows "Signing expires in N days", and a reminder is scheduled 1 day before. Onboarding now has every non-paid spec step: welcome → Health → recording → places → **sleep questions** → **notifications** → backfill. **Today** screen (tonight's plan with explanations, today's bouts, quick stats; refreshes after each engine run). Settings → Wind-down (reminders on/off, tomorrow's wake override, wind-down length; the length is a preference the engine applies once, so it keeps ownership of `engine_state`). Notification log screen with delays.
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| Fake clock: schedule at start + log row; idempotent; reschedule on supersede with the old log row cancelled; cancel when disabled; nothing scheduled in the past; next night gets its own identifier | PASS |
+| Home-arrival rule: not before start, not > 90 min after, once per night, suppressed after dismissal | PASS |
+| Delivery delay measured from the delivered list (42 s case) | PASS |
+| **Simulator, real UNUserNotificationCenter:** pending request's calendar trigger == wind-down time (± 0.5 s). Permission is granted by `NotificationPermissionUITests` because `simctl privacy` has no notifications service | PASS |
+| Signing profile parsing + reminder 1 day before | PASS |
+| UI: full onboarding → Today shows tonight's plan | PASS |
+
+**Bug fixed:** Today didn't refresh when the post-onboarding engine run finished, so it showed no plan until reopened. It now listens for `engineDidRun`.
+**Not testable here:** actual delivery delay on the device, which is measured in the final test via the log. Time-sensitive interruption level is not used (needs an entitlement that may not exist on a Personal Team).

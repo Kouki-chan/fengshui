@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct FengshuiApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel?
     @State private var startupError: String?
     @Environment(\.scenePhase) private var scenePhase
@@ -10,6 +11,7 @@ struct FengshuiApp: App {
         do {
             let env = try AppEnvironment.make()
             if !env.isTestMode { BackgroundTaskID.register(env: env) }
+            AppDelegate.scheduler = env.windDown
             _model = State(initialValue: AppModel(env: env))
         } catch {
             _startupError = State(initialValue: "\(error)")
@@ -53,7 +55,7 @@ struct MainTabs: View {
     var body: some View {
         TabView {
             Tab("Today", systemImage: "sun.max") {
-                NavigationStack { Text("Today").navigationTitle("Today") }
+                NavigationStack { TodayView(env: model.env) }
             }
             Tab("Ask", systemImage: "bubble.left.and.text.bubble.right") {
                 NavigationStack { Text("Ask").navigationTitle("Ask") }
@@ -70,6 +72,11 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section("Wind-down") {
+                NavigationLink("Wind-down & notifications") { WindDownSettingsView(env: model.env) }
+                    .accessibilityIdentifier("settings.winddown")
+                SigningRow()
+            }
             Section("Watch") {
                 NavigationLink("Recording") { RecordingView(env: model.env) }
                     .accessibilityIdentifier("settings.recording")
@@ -81,6 +88,8 @@ struct SettingsView: View {
             Section("Debug") {
                 NavigationLink("Data & sync") { DebugView(env: model.env) }
                     .accessibilityIdentifier("settings.debug")
+                NavigationLink("Notification log") { NotificationLogView(env: model.env) }
+                    .accessibilityIdentifier("settings.notiflog")
             }
         }
         .navigationTitle("Settings")
