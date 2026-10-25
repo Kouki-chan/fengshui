@@ -18,13 +18,16 @@ final class AppEnvironment: Sendable {
     let engine: EngineRunner
     let notifications: NotificationCenter
     let windDown: WindDownScheduler
+    let secrets: SecretStore
+    let server: ServerSync
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
 
     init(db: AppDatabase, clock: Clock, health: HealthStore, location: LocationProvider, motion: MotionHistory,
          watchLink makeLink: (WatchImporter, EventLog, EngineRunner) -> WatchLink,
-         notifications: NotificationCenter, testScenario: String?, timeZone: TimeZone) {
+         notifications: NotificationCenter, secrets: SecretStore, network: NetworkStatus,
+         testScenario: String?, timeZone: TimeZone) {
         self.db = db
         self.clock = clock
         self.health = health
@@ -41,7 +44,12 @@ final class AppEnvironment: Sendable {
         let windDown = WindDownScheduler(db: db, center: notifications, clock: clock, timeZone: timeZone, log: log)
         self.windDown = windDown
         // Every engine run may have written or superseded a plan → (re)schedule (spec §11).
-        let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log) { _ in await windDown.sync() }
+        self.secrets = secrets
+        let server = ServerSync(db: db, secrets: secrets, network: network, clock: clock, log: log,
+                                deviceID: Self.deviceID(db))
+        self.server = server
+        let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log, server: server,
+                                  afterRun: { _ in await windDown.sync() })
         self.engine = engine
         places = PlaceService(db: db, location: location, log: log, clock: clock,
                               onHomeArrival: { ts in
@@ -63,10 +71,25 @@ final class AppEnvironment: Sendable {
             // Spec §9: light tasks for refresh-type wakes, everything otherwise.
             let light = trigger == "bg_refresh" || trigger.hasPrefix("healthkit:")
             await engine.run(light ? EngineRunner.lightTasks : EngineRunner.allTasks, trigger: trigger)
+            // Nightly processing also archives old raw chunks and syncs to the Mac (spec §9, §12).
+            if trigger == "bg_processing" || trigger == "manual_sync" {
+                do {
+                    try await server.archive()
+                    try await server.sync()
+                } catch { log.add("server_error", "\(error)") }
+            }
         }
     }
 
     var isTestMode: Bool { testScenario != nil }
+
+    /// A random id for this install, used by the server's devices table.
+    static func deviceID(_ db: AppDatabase) -> String {
+        if let id = (try? db.preference("device_id", as: String.self)) ?? nil { return id }
+        let id = UUID().uuidString
+        try? db.setPreference("device_id", id)
+        return id
+    }
 
     // MARK: Recording preferences (spec §7.2)
 
@@ -95,6 +118,7 @@ final class AppEnvironment: Sendable {
                                   // -FengshuiRealNotifications: the permission-granting UI test uses the real center.
                                   notifications: arguments.contains("-FengshuiRealNotifications")
                                       ? SystemNotificationCenter() : FakeNotificationCenter(),
+                                  secrets: MemorySecretStore(), network: FixedNetworkStatus(onWiFi: true),
                                   testScenario: name,
                                   timeZone: TimeZone(identifier: scenario.tz) ?? .current)
         }
@@ -106,6 +130,7 @@ final class AppEnvironment: Sendable {
                                       await engine.run(["features", "activity", "wind_down"], trigger: "watch_import")
                                   })
                               },
-                              notifications: SystemNotificationCenter(), testScenario: nil, timeZone: .current)
+                              notifications: SystemNotificationCenter(), secrets: KeychainStore(),
+                              network: PathNetworkStatus(), testScenario: nil, timeZone: .current)
     }
 }

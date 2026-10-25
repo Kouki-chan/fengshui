@@ -77,6 +77,10 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.winddown")
                 SigningRow()
             }
+            Section("Mac server") {
+                NavigationLink("Server & compute") { ServerSettingsView(env: model.env) }
+                    .accessibilityIdentifier("settings.server")
+            }
             Section("Watch") {
                 NavigationLink("Recording") { RecordingView(env: model.env) }
                     .accessibilityIdentifier("settings.recording")

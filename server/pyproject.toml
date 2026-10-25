@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fengshui_server"
+version = "0.1.0"
+description = "Fengshui Mac server: sync, raw archive, remote compute, diagnostics"
+requires-python = ">=3.13"
+# fengshui_engine is installed from ../engine in editable mode (scripts/bootstrap.sh),
+# so phone and server always run the same engine code.
+dependencies = ["fastapi", "uvicorn[standard]", "zeroconf", "fengshui_engine"]
+
+[tool.setuptools.packages.find]
+include = ["fengshui_server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
