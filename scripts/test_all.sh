@@ -29,6 +29,10 @@ for rt in rts:
 IPHONE=$(sim_id iOS "iPhone 17 Pro")
 WATCH=$(sim_id watchOS "Apple Watch SE")
 
+# Tests copy scenario databases into the simulator's tmp folders; clear them so they don't pile up.
+find "$HOME/Library/Developer/CoreSimulator/Devices/$IPHONE/data/Containers/Data/Application" -path "*/tmp/*" \
+  \( -name "*.sqlite" -o -name "*.sqlite-wal" -o -name "*.sqlite-shm" \) -delete 2>/dev/null
+
 names=(); results=(); times=()
 run_layer() { # name, command...
   local name="$1"; shift

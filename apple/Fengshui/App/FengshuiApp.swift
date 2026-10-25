@@ -93,6 +93,12 @@ struct SettingsView: View {
                 NavigationLink("Places") { PlacesView(env: model.env) }
                     .accessibilityIdentifier("settings.places")
             }
+            Section("Device test") {
+                NavigationLink("Diagnostics") { DiagnosticsView(env: model.env) }
+                    .accessibilityIdentifier("settings.diagnostics")
+                NavigationLink("Export database") { ExportDatabaseView(env: model.env) }
+                    .accessibilityIdentifier("settings.export")
+            }
             Section("Debug") {
                 NavigationLink("Data & sync") { DebugView(env: model.env) }
                     .accessibilityIdentifier("settings.debug")

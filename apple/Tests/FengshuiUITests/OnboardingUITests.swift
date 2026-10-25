@@ -9,6 +9,14 @@ final class OnboardingUITests: XCTestCase {
         return e.isEnabled
     }
 
+    /// Settings is a long list: scroll until the row is on screen, then tap it.
+    func tapScrolling(_ app: XCUIApplication, _ id: String) {
+        let b = app.buttons[id]
+        var tries = 0
+        while !(b.exists && b.isHittable) && tries < 8 { app.swipeUp(); tries += 1 }
+        b.tap()
+    }
+
     func setPlace(_ app: XCUIApplication, _ id: String, name: String? = nil) {
         app.buttons[id].tap()
         if let name {
@@ -62,13 +70,28 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Start winding down"].waitForExistence(timeout: 30))
 
         app.tabBars.buttons["Settings"].tap()
-        app.buttons["settings.debug"].tap()
+        tapScrolling(app, "settings.debug")
         let hr = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'heart_rate'")).firstMatch
         XCTAssertTrue(hr.waitForExistence(timeout: 10))
 
         // Places persisted and visible in Settings.
         app.navigationBars.buttons.firstMatch.tap()
-        app.buttons["settings.places"].tap()
+        tapScrolling(app, "settings.places")
         XCTAssertTrue(app.staticTexts["Climbing gym"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Diagnostics runs in test mode (no server configured → not uploaded, but checks shown).
+        tapScrolling(app, "settings.diagnostics")
+        app.buttons["diag.run"].tap()
+        XCTAssertTrue(app.staticTexts["diag.status"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.descendants(matching: .any)["diag.check.healthkit_types_readable"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Ask tab: preset questions listed; without a key it explains what to do.
+        app.tabBars.buttons["Ask"].tap()
+        XCTAssertTrue(app.buttons["How active was I today?"].waitForExistence(timeout: 5))
+        app.buttons["How active was I today?"].tap()
+        XCTAssertTrue(app.staticTexts["ask.answer"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["ask.answer"].label.contains("API key"))
     }
 }

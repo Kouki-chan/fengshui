@@ -14,6 +14,12 @@ if [ ! -d "$PROJECT_DIR/$XCFW_REL" ]; then
   exit 1
 fi
 
+# Unsigned builds (CODE_SIGNING_ALLOWED=NO, e.g. measuring app size) have no identity;
+# BeeWare's helper signs each extension framework, so fall back to ad-hoc signing.
+: "${EXPANDED_CODE_SIGN_IDENTITY:=-}"
+: "${EXPANDED_CODE_SIGN_IDENTITY_NAME:=ad-hoc}"
+export EXPANDED_CODE_SIGN_IDENTITY EXPANDED_CODE_SIGN_IDENTITY_NAME
+
 # shellcheck disable=SC1091
 source "$PROJECT_DIR/$XCFW_REL/build/utils.sh"
 
