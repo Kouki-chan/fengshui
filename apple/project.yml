@@ -50,6 +50,13 @@ targets:
         script: |
           "$PROJECT_DIR/../scripts/build_python_ios.sh"
         basedOnDependencyAnalysis: false
+    postBuildScripts:
+      # Synthetic scenarios are only for -FengshuiTestMode (Debug); not shipped in Release.
+      # Runs after resources are copied, before signing.
+      - name: Strip test scenarios in Release
+        script: |
+          if [ "$CONFIGURATION" = "Release" ]; then rm -rf "$CODESIGNING_FOLDER_PATH/scenarios"; fi
+        basedOnDependencyAnalysis: false
     entitlements:
       path: Fengshui/Fengshui.entitlements
       properties:

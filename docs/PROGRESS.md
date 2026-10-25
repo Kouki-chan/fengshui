@@ -13,15 +13,15 @@
 | 5 Notifications | done (tag `phase-5`) | PASS |
 | 6 Server | done (tag `phase-6`) | PASS |
 | 7 Claude | done (tag `phase-7`) | PASS (live smoke test not run: no key) |
-| 8 Hardening | — | — |
+| 8 Hardening | done (tags `phase-8`, `v0.1-poc`) | PASS |
 
 ## Blocked / waiting on owner
 
 | Item | Needed for | Workaround |
 | --- | --- | --- |
-| GitHub: `gh` not installed / authenticated; repo visibility unchecked | pushing | owner deferred; local commits and tags |
+| GitHub: `gh` not installed / authenticated; repo visibility unchecked | pushing | owner deferred; all work committed locally on `main` with tags (push steps in FINAL_REPORT) |
 | Homebrew not installed | — | repo-local tools (D-01) |
-| Xcode not signed in to an Apple Account (no Team ID) | device builds only | simulator builds need no team |
+| Xcode not signed in to an Apple Account (no Team ID) | device install (DEVICE_TEST_CHECKLIST A1–A2) | simulator builds need no team |
 | `ANTHROPIC_API_KEY` not set | Phase 7 live smoke test | mocked API tests pass; run `scripts/claude_smoke_test.sh` once the key is in your shell |
 | Test data reality not confirmed | committing anything derived from it | treated as private |
 
@@ -153,3 +153,12 @@
 | **Privacy scan** of every request body built in the tests: no raw-data field names | PASS |
 | Scheduling (parse, first-sight, catch-up once, disable, DST week) + scheduled answer delivered as a notification | PASS |
 | Live smoke test (three preset questions, `claude-haiku-5-5`, synthetic DB) | **not run**: `ANTHROPIC_API_KEY` is not set in the shell. `scripts/claude_smoke_test.sh` runs it (and `test_all.sh` adds it automatically) once it is |
+
+### Phase 8 — Hardening and handover (2026-10-24)
+**Built:** Settings → Device test → **Diagnostics** (≈ 35 self-checks: HealthKit types / data / backfill / last sync per background-delivery type / observers registered and fired, Always location, geofences, visits, phone motion, watch paired / reachable, raw coverage 24 h, real compression ratio, recorder gaps, snapshots, compass, engine last run, tonight's notification, notification delays, server, Claude key, signing expiry; metrics incl. app bundle size, DB size, battery, unadopted export rows), uploaded as JSON to `POST /diagnostics` (readable with `GET /diagnostics/latest`); **Export database** (SQLite online backup → ShareLink / Files); Release builds strip the synthetic scenarios; unsigned device builds work (ad-hoc signing for the Python extension frameworks) so size can be measured; `test_all.sh` cleans test DB copies from the simulator; README, `PAID_ACCOUNT_SWITCH.md` (incl. Spike B), `install_on_devices.sh`, `DEVICE_TEST_CHECKLIST.md`, `FINAL_REPORT.md`.
+
+**Privacy review:** raw watch data has no path to Claude (read-only connection refusing raw tables + tool-output and request-body scans in tests). Secrets never appear in the event log, preferences or Diagnostics JSON (tested). The token and key are Keychain-only. The pre-commit hook blocks key-shaped strings: it caught a test fixture and rejected the commit, and the fixture was changed rather than the hook. Visits go to Claude without coordinates. The watch uses no location.
+
+**Gate:** `scripts/test_all.sh` fully green, 12 layers in 236 s, no expected failures. Release device build **45 MB** (12.9 MB zipped).
+
+**Next:** the owner's device test (`docs/DEVICE_TEST_CHECKLIST.md`). Only the owner can do: sign in to Xcode and set the Team ID, Developer Mode on both devices, permissions, 3 days of wear.

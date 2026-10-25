@@ -15,7 +15,7 @@ Everything that can run without the owner's devices is tested on this Mac. Real-
 | Phone ↔ server | sync, archive, retrieve, remote compute | iOS Simulator → server on this Mac | `scripts/test_all.sh --live` |
 | Real data | engine on the owner's export | Mac, `~/Desktop/HealthExport/fengshui_health.sqlite` | `scripts/real_data_check.sh` (local-only report) |
 
-`scripts/test_all.sh` runs every layer and prints a pass/fail table (target < 10 min).
+`scripts/test_all.sh` runs every layer and prints a pass/fail table (≈ 4 min). Notification permission on the simulator is granted by `NotificationPermissionUITests` (simctl can't); the live Claude test runs only when `ANTHROPIC_API_KEY` is set.
 
 ## Testability rules
 
