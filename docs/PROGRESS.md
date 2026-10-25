@@ -11,7 +11,7 @@
 | 3 Watch | done (tag `phase-3`) | PASS |
 | 4 Engine | done (tag `phase-4`) | PASS |
 | 5 Notifications | done (tag `phase-5`) | PASS |
-| 6 Server | — | — |
+| 6 Server | done (tag `phase-6`) | PASS |
 | 7 Claude | — | — |
 | 8 Hardening | — | — |
 
@@ -127,3 +127,15 @@
 
 **Bug fixed:** Today didn't refresh when the post-onboarding engine run finished, so it showed no plan until reopened. It now listens for `engineDidRun`.
 **Not testable here:** actual delivery delay on the device, which is measured in the final test via the log. Time-sensitive interruption level is not used (needs an entitlement that may not exist on a Personal Team).
+
+### Phase 6 — Server (2026-10-24)
+**Built:** `server/fengshui_server` (FastAPI): bearer auth with constant-time comparison, engine-version check (409), `/health`, `/sync` (natural-key upserts, deletion list, export-row adoption, devices table), `/raw/archive` (blobs unchanged, partitioned by day), `/raw` (base64 + sha256), `/compute` (engine `where="server"`, returns new/superseded rows, features and engine state), `/diagnostics` + `/diagnostics/latest`, Bonjour `_fengshui._tcp`. `scripts/run_server.sh` generates the token into gitignored `server/.env` on first run; optional launchd plist. Phone: `KeychainStore` (token; after-first-unlock, this device only), `ServerClient`, `ServerSync` (incremental watermarks in `server_sync_state`, re-sent mutable rows, Wi-Fi only via `NWPathMonitor`, archive of chunks older than 7 days with payload cleared only for confirmed refs, byte-exact retrieve, remote compute), compute location phone/server/auto in `EngineRunner` (auto = Low Power Mode or > 24 h raw backlog, and reachable; falls back to the phone on failure), Bonjour discovery (`NWBrowser`) + manual URL, Settings → Server & compute, nightly archive + sync in `BGProcessingTask`.
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| API tests: auth (missing / wrong / no "Bearer"), version mismatch, unknown table, sync idempotency (row counts unchanged on re-sync), deletions, export adoption, byte-exact archive retrieval + sha256, idempotent re-archive, **compute parity** (server rows == phone rows for `typical_week`, incl. features + engine state), diagnostics, Bonjour startup | PASS (12) |
+| Phone unit tests (stub server): watermarks, Wi-Fi only, partial archive confirmation, errors, compute-location choice, fallback to phone, Keychain | PASS |
+| **Live:** server started on this Mac, simulator app syncs (16k samples, then 0 on re-sync), runs remote compute (result identical to the Mac reference dump), archives 2,000+ chunks 8 days later, retrieves them byte-for-byte | PASS (`scripts/live_server_test.sh`, now part of `test_all.sh`) |
+
+**Bug fixed:** server startup hung with Bonjour on (sync zeroconf inside uvicorn's loop); covered by a regression test.

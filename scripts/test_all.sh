@@ -2,14 +2,14 @@
 # Runs every automated test layer and prints a pass/fail table (spec §14.1).
 #   scripts/test_all.sh            all layers
 #   scripts/test_all.sh --quick    skip UI tests
-#   scripts/test_all.sh --live     also run the live phone↔server integration test
+#   scripts/test_all.sh --no-live  skip the live phone↔server integration test
 # Logs: build/test-logs/<layer>.log
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOGS="$ROOT/build/test-logs"
 DD="$ROOT/build/dd"
 mkdir -p "$LOGS"
-QUICK=0; LIVE=0
+QUICK=0; LIVE=1
 for a in "$@"; do
   case "$a" in --quick) QUICK=1 ;; --live) LIVE=1 ;; esac
 done

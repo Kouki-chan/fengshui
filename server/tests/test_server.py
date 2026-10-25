@@ -157,3 +157,10 @@ def test_diagnostics_stored_and_readable(client, tmp_path):
     assert r.status_code == 200
     assert (tmp_path / "diag" / r.json()["stored"]).exists()
     assert client.get("/diagnostics/latest", headers=H).json() == rep
+
+
+def test_startup_with_bonjour_does_not_hang(tmp_path):
+    # Regression: the sync zeroconf API deadlocked inside uvicorn's event loop.
+    s = Settings(data_dir=tmp_path / "data", token=TOKEN, diagnostics_dir=tmp_path / "diag")
+    with TestClient(create_app(s, bonjour=True, port=28766)) as c:
+        assert c.get("/health").json()["ok"]

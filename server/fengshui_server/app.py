@@ -91,10 +91,10 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if bonjour:
-            zc_holder["zc"] = _advertise(port)
+            zc_holder["zc"] = await _advertise(port)
         yield
         if "zc" in zc_holder:
-            zc_holder["zc"].close()
+            await zc_holder["zc"].async_close()
 
     app = FastAPI(title="Fengshui server", version=ENGINE_VERSION, lifespan=lifespan)
     app.state.store = store
@@ -197,11 +197,13 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     return app
 
 
-def _advertise(port: int):
-    """Bonjour `_fengshui._tcp` so the phone can find the server on the LAN (spec §12)."""
+async def _advertise(port: int):
+    """Bonjour `_fengshui._tcp` so the phone can find the server on the LAN (spec §12).
+    Async API: the sync one deadlocks inside uvicorn's event loop."""
     import socket
 
-    from zeroconf import ServiceInfo, Zeroconf
+    from zeroconf import ServiceInfo
+    from zeroconf.asyncio import AsyncZeroconf
     host = socket.gethostname()
     try:
         addr = socket.gethostbyname(host if host.endswith(".local") else host + ".local")
@@ -210,6 +212,6 @@ def _advertise(port: int):
     info = ServiceInfo("_fengshui._tcp.local.", f"Fengshui on {host.split('.')[0]}._fengshui._tcp.local.",
                        addresses=[socket.inet_aton(addr)], port=port,
                        properties={"engine": ENGINE_VERSION, "path": "/"})
-    zc = Zeroconf()
-    zc.register_service(info)
+    zc = AsyncZeroconf()
+    await zc.async_register_service(info)
     return zc
