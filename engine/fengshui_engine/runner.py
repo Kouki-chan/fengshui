@@ -4,17 +4,22 @@ from __future__ import annotations
 
 import time
 
-from . import ENGINE_VERSION, db, places
+from . import ENGINE_VERSION, activity, db, features, places, wind_down
 
 # name -> callable(conn, ctx) -> dict(rows_written=..., warnings=[...]).
-# Order matters when running "all": features before activity before wind_down.
+# Order matters when running "all": features → activity → last night's outcome (adapts
+# the wind-down length) → tonight's plan → place suggestions.
 TASKS: dict = {
+    "features": features.run,
+    "activity": activity.run,
+    "wind_down_outcome": wind_down.run_outcome,
+    "wind_down": wind_down.run,
     "place_suggestions": places.run,
 }
 
 
 def run(db_path: str, *, now_ts: float, tz: str, where: str,
-        tasks: list[str] | None = None) -> dict:
+        tasks: list[str] | None = None, options: dict | None = None) -> dict:
     if where not in ("phone", "server"):
         raise ValueError(f"where must be 'phone' or 'server', not {where!r}")
     conn = db.connect(db_path)
@@ -24,7 +29,8 @@ def run(db_path: str, *, now_ts: float, tz: str, where: str,
         unknown = [n for n in names if n not in TASKS]
         summary = {"engine_version": ENGINE_VERSION, "where": where, "tasks": {},
                    "warnings": [f"unknown task {n}" for n in unknown]}
-        ctx = {"now_ts": now_ts, "tz": tz, "where": where}
+        # `options` are developer-only switches (calibrate.py); the app never passes any.
+        ctx = {"now_ts": now_ts, "tz": tz, "where": where, **(options or {})}
         for name in names:
             if name in unknown:
                 continue

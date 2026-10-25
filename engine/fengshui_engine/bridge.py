@@ -48,6 +48,11 @@ def _check_schema(args: dict) -> dict:
         conn.close()
 
 
+def _dump(args: dict) -> dict:
+    from .dump import canonical
+    return {"canonical": canonical(args["db_path"])}
+
+
 def _run(args: dict) -> dict:
     from . import run
     return run(args["db_path"], now_ts=args["now_ts"], tz=args["tz"], where=args["where"],
@@ -59,6 +64,7 @@ FUNCTIONS = {
     "sqlite_probe": _sqlite_probe,
     "zoneinfo_probe": _zoneinfo_probe,
     "check_schema": _check_schema,
+    "dump": _dump,
     "run": _run,
 }
 

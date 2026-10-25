@@ -15,12 +15,13 @@ final class AppEnvironment: Sendable {
     let motion: MotionImporter
     let watchImporter: WatchImporter
     let watchLink: WatchLink
+    let engine: EngineRunner
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
 
     init(db: AppDatabase, clock: Clock, health: HealthStore, location: LocationProvider, motion: MotionHistory,
-         watchLink makeLink: (WatchImporter, EventLog) -> WatchLink, testScenario: String?, timeZone: TimeZone) {
+         watchLink makeLink: (WatchImporter, EventLog, EngineRunner) -> WatchLink, testScenario: String?, timeZone: TimeZone) {
         self.db = db
         self.clock = clock
         self.health = health
@@ -33,10 +34,14 @@ final class AppEnvironment: Sendable {
         healthSync = sync
         let motionImporter = MotionImporter(db: db, history: motion, clock: clock)
         self.motion = motionImporter
-        places = PlaceService(db: db, location: location, log: log, clock: clock)
+        let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log)
+        self.engine = engine
+        places = PlaceService(db: db, location: location, log: log, clock: clock,
+                              onHomeArrival: { _ in await engine.run(EngineRunner.lightTasks, trigger: "home_arrival") },
+                              onVisit: { await engine.run(EngineRunner.lightTasks, trigger: "visit") })
         let importer = WatchImporter(db: db, clock: clock)
         watchImporter = importer
-        watchLink = makeLink(importer, log)
+        watchLink = makeLink(importer, log, engine)
         delivery = BackgroundDelivery(sync: sync, store: health, log: log) { trigger in
             // Every sync also pulls iPhone motion history (spec §6.3).
             do {
@@ -45,7 +50,9 @@ final class AppEnvironment: Sendable {
             } catch {
                 log.add("motion_error", "\(error)")
             }
-            // Engine trigger is wired in Phase 4 (EngineRunner).
+            // Spec §9: light tasks for refresh-type wakes, everything otherwise.
+            let light = trigger == "bg_refresh" || trigger.hasPrefix("healthkit:")
+            await engine.run(light ? EngineRunner.lightTasks : EngineRunner.allTasks, trigger: trigger)
         }
     }
 
@@ -74,16 +81,17 @@ final class AppEnvironment: Sendable {
             return AppEnvironment(db: db, clock: FixedClock(Date(timeIntervalSince1970: scenario.now)),
                                   health: FakeHealthStore(scenario: scenario),
                                   location: FakeLocationProvider(coordinate: (home?.lat ?? 40.1, home?.lon ?? -75.2)),
-                                  motion: FakeMotionHistory(scenario: scenario), watchLink: { _, _ in FakeWatchLink() },
+                                  motion: FakeMotionHistory(scenario: scenario), watchLink: { _, _, _ in FakeWatchLink() },
                                   testScenario: name,
                                   timeZone: TimeZone(identifier: scenario.tz) ?? .current)
         }
         return AppEnvironment(db: try AppDatabase(path: AppDatabase.defaultURL().path), clock: SystemClock(),
                               health: HKHealthStoreAdapter(), location: CoreLocationProvider(),
                               motion: CoreMotionHistory(),
-                              watchLink: { importer, log in
-                                  // Engine trigger after watch imports is wired in Phase 4.
-                                  WCPhoneLink(importer: importer, log: log, afterImport: {})
+                              watchLink: { importer, log, engine in
+                                  WCPhoneLink(importer: importer, log: log, afterImport: {
+                                      await engine.run(["features", "activity", "wind_down"], trigger: "watch_import")
+                                  })
                               },
                               testScenario: nil, timeZone: .current)
     }

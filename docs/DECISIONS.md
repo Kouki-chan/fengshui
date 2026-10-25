@@ -34,5 +34,22 @@ Visit monitoring, significant-location-change and `CLMonitor` events relaunch a 
 ## D-11 — Watch uses no location; compass from the magnetometer
 Owner's instruction (2026-10-24): the watch must not need location data; location comes from the iPhone. The watch asks for no location permission, and its Info.plist has no location usage strings. The compass "sensor" (tier 2 snapshots and tier 3 sessions) is a **tilt-compensated heading computed on the watch** from the raw magnetometer (`CMMotionManager.startMagnetometerUpdates`) and device-motion gravity (`FengshuiKit.Compass`, unit-tested). That replaces `CLLocationManager` heading, which needs location authorization and may not deliver in the background. The magnetometer is uncalibrated, so the absolute heading can carry a fixed offset. The engine only uses heading changes (`heading_change_deg`), which the offset doesn't affect. All place and visit context (`context_visits`, geofences, suggestions) comes from the iPhone's Core Location (spec §6.2). Device test: confirm `isMagnetometerAvailable` on the Watch SE (1st gen) and that compass chunks arrive.
 
+## D-12 — Day type needs location history first
+Spec §10.2 step 2: "workday if there was a visit to a work place on that weekday in ≥ 2 of the last 4 weeks". For a new user, every weekday in the first two weeks has fewer than two prior weeks of visits, so the rule would call them free days and predict free-day wake times for workdays. When fewer than two of the four looked-back weeks fall after the first recorded visit, the weekday default applies instead (Mon–Fri workday), which is the spec's own rule for "no Work place set". After that the spec rule applies unchanged.
+
+## D-13 — Activity scoring details beyond the spec table
+Recorded so thresholds can be tuned with `calibrate.py`; every number is in `config.py`. Full scoring table: `docs/ALGORITHMS.md`.
+- **Light from steps only:** 10–59 steps/min with ENMO missing or < 45 mg scores `light` 0.6. Otherwise those minutes matched no label.
+- **Stairs is more specific than walking:** with climbing evidence (flights or |vertical speed| ≥ 3 m/min), walking and running are capped at 0.1, so a 2-minute stairs bout can beat the switch penalty.
+- **Sedentary while off-wrist:** in a watch-off run, sedentary is capped at 0.2. Stillness of a watch on the table says nothing about the person.
+- **watch_off needs the accelerometer** (`mag_sd_mg`, as the spec says). On days without raw data it can't be detected, and those minutes fall to sedentary/unknown.
+- **Bouts:** `minute_end` is exclusive. Merging a short bout never involves the fixed labels (workout, sleep). Re-runs that produce identical bouts write nothing.
+
+## D-14 — Steps and flights: per-source maximum, not sum (found by the real-data check)
+The owner's Health data has step samples from several devices for the same minutes (Apple Watch, iPhone, a ring). Summing them double-counts steps and turned walks into "running" (342 of 2,109 walking-workout minutes). HealthKit itself de-duplicates across sources. The engine now prorates each source separately and takes the **maximum per minute**. Synthetic results are unchanged (one source per minute); on real data, walking → running inside walking workouts went from 342 minutes to 0.
+
+## D-15 — Calibration uses user-started workouts
+Auto-detected "walking" workouts from other apps (Oura, in the owner's data) have a median of 0 steps/min and median HRR 0.23. They aren't walks, so they aren't valid ground truth. `calibrate.py --source '%Watch%'` (and the real-data check) report Apple Watch workouts separately. No thresholds were changed on the basis of the auto-detected ones.
+
 ## D-09 — Simulator runtimes
 Installed: iOS 27.0, watchOS 27.0. iOS 26.0 is being added for the spec's iOS 26 tests. The oldest watchOS runtime Xcode 27 offers is used for watchOS tests; whatever is used gets recorded in PROGRESS.md.
