@@ -64,6 +64,9 @@ fi
 if [ $LIVE -eq 1 ] && [ -x "$ROOT/scripts/live_server_test.sh" ]; then
   run_layer live-server   "$ROOT/scripts/live_server_test.sh" "$IPHONE"
 fi
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  run_layer claude-live   "$ROOT/scripts/claude_smoke_test.sh" "$IPHONE"
+fi
 
 echo
 printf "%-18s %-6s %s\n" LAYER RESULT TIME

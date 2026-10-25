@@ -58,7 +58,7 @@ struct MainTabs: View {
                 NavigationStack { TodayView(env: model.env) }
             }
             Tab("Ask", systemImage: "bubble.left.and.text.bubble.right") {
-                NavigationStack { Text("Ask").navigationTitle("Ask") }
+                NavigationStack { AskView(env: model.env) }
             }
             Tab("Settings", systemImage: "gear") {
                 NavigationStack { SettingsView(model: model) }
@@ -76,6 +76,10 @@ struct SettingsView: View {
                 NavigationLink("Wind-down & notifications") { WindDownSettingsView(env: model.env) }
                     .accessibilityIdentifier("settings.winddown")
                 SigningRow()
+            }
+            Section("Claude") {
+                NavigationLink("Claude") { ClaudeSettingsView(env: model.env) }
+                    .accessibilityIdentifier("settings.claude")
             }
             Section("Mac server") {
                 NavigationLink("Server & compute") { ServerSettingsView(env: model.env) }
