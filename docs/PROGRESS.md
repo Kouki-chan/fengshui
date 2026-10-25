@@ -12,7 +12,7 @@
 | 4 Engine | done (tag `phase-4`) | PASS |
 | 5 Notifications | done (tag `phase-5`) | PASS |
 | 6 Server | done (tag `phase-6`) | PASS |
-| 7 Claude | — | — |
+| 7 Claude | done (tag `phase-7`) | PASS (live smoke test not run: no key) |
 | 8 Hardening | — | — |
 
 ## Blocked / waiting on owner
@@ -22,7 +22,7 @@
 | GitHub: `gh` not installed / authenticated; repo visibility unchecked | pushing | owner deferred; local commits and tags |
 | Homebrew not installed | — | repo-local tools (D-01) |
 | Xcode not signed in to an Apple Account (no Team ID) | device builds only | simulator builds need no team |
-| `ANTHROPIC_API_KEY` not set | Phase 7 live smoke test | mocked API tests run anyway |
+| `ANTHROPIC_API_KEY` not set | Phase 7 live smoke test | mocked API tests pass; run `scripts/claude_smoke_test.sh` once the key is in your shell |
 | Test data reality not confirmed | committing anything derived from it | treated as private |
 
 ## Log
@@ -139,3 +139,17 @@
 | **Live:** server started on this Mac, simulator app syncs (16k samples, then 0 on re-sync), runs remote compute (result identical to the Mac reference dump), archives 2,000+ chunks 8 days later, retrieves them byte-for-byte | PASS (`scripts/live_server_test.sh`, now part of `test_all.sh`) |
 
 **Bug fixed:** server startup hung with Bonjour on (sync zeroconf inside uvicorn's loop); covered by a regression test.
+
+### Phase 7 — Claude (2026-10-24)
+**Built:** `AnthropicHTTP` (Messages API, retries), `ClaudeTools` (7 tools of spec §13 over a read-only connection that refuses raw tables; compact JSON, capped rows / buckets / 12k chars per result), `ClaudeAssistant` tool loop (max 8 rounds then a budget notice, ~50k tool characters per question, refusal / max_tokens / errors handled, everything logged in `ai_log`), preset questions (3 dev seeds; add / edit / disable / schedule `daily:HH:MM` or `weekly:day:HH:MM`; scheduled ones run in `BGAppRefreshTask` and the answer arrives as a notification), Ask tab (presets + chat), Settings → Claude (Keychain key, model) and the `ai_log` viewer. Model choices and API details: D-17.
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| Each tool's output on the synthetic `typical_week` DB (labels, bouts incl. "near Work", daily summary, hourly HR / daily steps, 7 nights, visits by name, empty Screen Time with note) + input errors and size caps | PASS |
+| **No tool can read `raw_chunks` / `raw_minute_features`**: SQL naming them is refused, the connection is read-only, and no tool output contains raw fields | PASS |
+| Tool loop with a mocked API: 3 requests, parallel tool results in one user turn, thinking block passed back unchanged, tokens summed, `ai_log` row; 8-round cap; ~50k output cap; HTTP 401, refusal, unknown tool | PASS |
+| Request shape: model, `tool_choice` auto, no temperature, fallbacks + beta for Sonnet / none for Haiku, headers + `anthropic-version` + retry on 529 | PASS |
+| **Privacy scan** of every request body built in the tests: no raw-data field names | PASS |
+| Scheduling (parse, first-sight, catch-up once, disable, DST week) + scheduled answer delivered as a notification | PASS |
+| Live smoke test (three preset questions, `claude-haiku-5-5`, synthetic DB) | **not run**: `ANTHROPIC_API_KEY` is not set in the shell. `scripts/claude_smoke_test.sh` runs it (and `test_all.sh` adds it automatically) once it is |

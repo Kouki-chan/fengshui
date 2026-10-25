@@ -53,6 +53,21 @@ def _dump(args: dict) -> dict:
     return {"canonical": canonical(args["db_path"])}
 
 
+def _sleep_nights(args: dict) -> dict:
+    """Processed nights for the Claude tool get_sleep_nights (same logic as wind_down)."""
+    from . import db, sleep
+    conn = db.connect(args["db_path"])
+    try:
+        out = []
+        for n in sleep.nights(conn, args["tz"], args["start_ts"], args["end_ts"]):
+            out.append({"night_of": (n.wake_date.fromordinal(n.wake_date.toordinal() - 1)).isoformat(),
+                        "onset_ts": n.onset, "wake_ts": n.wake, "asleep_min": n.asleep_min,
+                        "latency_min": n.latency_min, "in_bed_ts": n.in_bed_start, "stage_min": n.stage_min})
+        return {"nights": out}
+    finally:
+        conn.close()
+
+
 def _run(args: dict) -> dict:
     from . import run
     return run(args["db_path"], now_ts=args["now_ts"], tz=args["tz"], where=args["where"],
@@ -65,6 +80,7 @@ FUNCTIONS = {
     "zoneinfo_probe": _zoneinfo_probe,
     "check_schema": _check_schema,
     "dump": _dump,
+    "sleep_nights": _sleep_nights,
     "run": _run,
 }
 

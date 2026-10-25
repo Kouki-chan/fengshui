@@ -20,6 +20,7 @@ final class AppEnvironment: Sendable {
     let windDown: WindDownScheduler
     let secrets: SecretStore
     let server: ServerSync
+    let questions: AIQuestionStore
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
@@ -51,6 +52,8 @@ final class AppEnvironment: Sendable {
         let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log, server: server,
                                   afterRun: { _ in await windDown.sync() })
         self.engine = engine
+        questions = AIQuestionStore(db: db, clock: clock)
+        try? questions.seedIfNeeded()
         places = PlaceService(db: db, location: location, log: log, clock: clock,
                               onHomeArrival: { ts in
                                   await engine.run(EngineRunner.lightTasks, trigger: "home_arrival")
@@ -82,6 +85,28 @@ final class AppEnvironment: Sendable {
     }
 
     var isTestMode: Bool { testScenario != nil }
+
+    // MARK: Claude (spec §13)
+
+    var claudeModel: String {
+        ((try? db.preference(ClaudeAssistant.modelKey, as: String.self)) ?? nil) ?? ClaudeAssistant.defaultModel
+    }
+
+    /// nil until an API key is entered in Settings (Keychain).
+    func assistant(transport: MessagesTransport? = nil) -> ClaudeAssistant? {
+        let t: MessagesTransport
+        if let transport { t = transport } else {
+            guard let key = secrets.get(SecretKey.anthropicKey), !key.isEmpty else { return nil }
+            t = AnthropicHTTP(apiKey: key)
+        }
+        guard let tools = try? ClaudeTools(dbPath: db.path, timeZone: timeZone) else { return nil }
+        return ClaudeAssistant(db: db, tools: tools, transport: t, clock: clock, timeZone: timeZone, model: claudeModel)
+    }
+
+    var scheduledQuestions: ScheduledQuestions {
+        ScheduledQuestions(store: questions, assistant: { [self] in assistant() }, notifications: notifications,
+                           timeZone: timeZone)
+    }
 
     /// A random id for this install, used by the server's devices table.
     static func deviceID(_ db: AppDatabase) -> String {

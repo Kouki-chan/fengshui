@@ -99,7 +99,10 @@ enum BackgroundTaskID {
     static func register(env: AppEnvironment) {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: refresh, using: nil) { task in
             scheduleRefresh()
-            run(task) { await env.delivery.syncNow(trigger: "bg_refresh") }
+            run(task) {
+                await env.delivery.syncNow(trigger: "bg_refresh")
+                await env.scheduledQuestions.runDue()
+            }
         }
         BGTaskScheduler.shared.register(forTaskWithIdentifier: processing, using: nil) { task in
             scheduleProcessing()
