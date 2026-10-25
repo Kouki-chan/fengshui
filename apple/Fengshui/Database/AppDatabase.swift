@@ -26,6 +26,12 @@ final class AppDatabase: Sendable {
     static var migrator: DatabaseMigrator {
         var m = DatabaseMigrator()
         m.registerMigration("v1") { db in
+            // A DB created by Python (importer, server, restored backup) already has v1
+            // but no GRDB migration record: adopt it instead of failing.
+            if try db.tableExists("schema_version"),
+               try Int.fetchOne(db, sql: "SELECT MAX(version) FROM schema_version") == 1 {
+                return
+            }
             try db.execute(sql: try Schema.sql(version: 1))
         }
         return m

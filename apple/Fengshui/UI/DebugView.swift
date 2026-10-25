@@ -28,6 +28,19 @@ struct DebugView: View {
                     }
                 }
             }
+            Section("Engine runs") {
+                ForEach(Array(env.engine.history().prefix(20).enumerated()), id: \.offset) { _, r in
+                    VStack(alignment: .leading) {
+                        Text("\(r.trigger) · \(r.ok ? "OK" : "FAILED") · +\(r.rowsWritten) · \(String(format: "%.2f", r.seconds)) s")
+                            .font(.caption.bold())
+                        Text(Date(timeIntervalSince1970: r.ts).formatted(date: .abbreviated, time: .standard)
+                             + " " + r.tasks.joined(separator: ",") + (r.error.map { " " + $0 } ?? ""))
+                            .font(.caption2)
+                    }
+                }
+                Button("Run engine now") { Task { await env.engine.run(trigger: "manual"); reload() } }
+                    .accessibilityIdentifier("debug.runEngine")
+            }
             Section("Events") {
                 ForEach(env.log.events.suffix(50).reversed()) { e in
                     VStack(alignment: .leading) {

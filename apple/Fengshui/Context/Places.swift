@@ -43,14 +43,18 @@ final class PlaceService: Sendable {
     private let clock: Clock
     /// Called when the user arrives Home (used by wind-down, spec §10.2 step 7 / §11).
     let onHomeArrival: @Sendable (Double) async -> Void
+    /// Any visit / region event triggers a light engine run (spec §9).
+    let onVisit: @Sendable () async -> Void
 
     /// iOS allows 20 monitored conditions per app; named places are far fewer.
     static let maxGeofences = 20
 
     init(db: AppDatabase, location: LocationProvider, log: EventLog, clock: Clock,
-         onHomeArrival: @escaping @Sendable (Double) async -> Void = { _ in }) {
+         onHomeArrival: @escaping @Sendable (Double) async -> Void = { _ in },
+         onVisit: @escaping @Sendable () async -> Void = {}) {
         self.db = db; self.location = location; self.log = log; self.clock = clock
         self.onHomeArrival = onHomeArrival
+        self.onVisit = onVisit
     }
 
     // MARK: Places
@@ -166,10 +170,13 @@ final class PlaceService: Sendable {
             do { try await recordVisit(arrival: arrival, departure: departure, lat: lat, lon: lon, hAccuracy: acc) } catch {
                 log.add("visit_error", "\(error)")
             }
+            await onVisit()
         case let .region(id, entered, at):
             log.add(entered ? "region_enter" : "region_exit", id)
             if entered, let home = try? places().first(where: { $0.kind == .home }), id == "place-\(home.id)" {
                 await onHomeArrival(at)
+            } else {
+                await onVisit()
             }
         case .significantChange:
             log.add("significant_change")

@@ -9,7 +9,7 @@
 | 1 Database + HealthKit | done (tag `phase-1`) | PASS |
 | 2 Context | done (tag `phase-2`) | PASS |
 | 3 Watch | done (tag `phase-3`) | PASS |
-| 4 Engine | — | — |
+| 4 Engine | done (tag `phase-4`) | PASS |
 | 5 Notifications | — | — |
 | 6 Server | — | — |
 | 7 Claude | — | — |
@@ -97,3 +97,17 @@
 | Compression ratio, synthetic 50 Hz trace (desk / walk / run): **3.08× vs float32**, 1.54× on top of int16 packing | measured |
 | Compression ratio, owner's real Sensor Logger watch recordings (local only, resampled to 50 Hz): **3.18–3.52× vs float32**, about 10 KiB/min (~14 MB/day of tier 1) | measured |
 | Watch app builds for watchOS 10 target; complication compiles (ClockKit) | PASS |
+
+### Phase 4 — Engine (2026-10-24)
+**Built:** `features` (ENMO, SD, autocorrelation cadence, active fraction, barometric vertical speed, heading change, gyro RMS; incremental by `received_at`), `activity-v1` (per-minute evidence, documented scoring in `docs/ALGORITHMS.md`, O(n·labels) Viterbi with fixed workout/sleep overrides, minimum bouts, HRR intensity, place context incl. "near Work" and commute from/to, confidence, provisional + supersede, daily summaries), `sleep` nights, `wind_down` + `wind_down_outcome` (`wind_down-v1`, the spec's arithmetic in `compose()`, circular medians, day type, override, need/debt, guards, evening adjustments incl. not-home / Screen Time reasons, supersede only on > 5 min moves, learning of wind-down length), `place_suggestions`; all constants in `config.py`. Embedded runs: `EngineRunner` actor (serialized, logged in the debug screen with "Run engine now"), triggered by HealthKit deliveries, foreground, `BGAppRefreshTask` (light tasks), `BGProcessingTask` (all), watch imports, visits and Home arrival. Tools: `engine/tools/calibrate.py`, `scripts/real_data_check.py`, `engine/tests/eval_scenario.py`, canonical dump (`fengshui_engine.dump`).
+
+**Gate results:**
+| Check | Result |
+| --- | --- |
+| pytest for every task (108 Python tests total): features (cadence per activity, exact ENMO, snapshots, late chunks, tier 3, archived), activity (Viterbi, min bouts, details, days, incremental/idempotent, golden fixture `fixtures/golden/activity_typical_week.json`), wind-down (**the spec's worked example: 23:41 / 23:27 / 22:12**, guards, cap, circular medians, workday/free/shift/cold start, override, adjustments + supersede, not-home, outcomes + learning ±15 min), calibration | PASS |
+| Agreement with synthetic ground truth (minutes): typical_week 95.7 % (raw-data days 99.7 %), no_watch_data 94.5 %, shift_worker 99.6 % (99.9 %), sparse_data 95.2 % (100 %). watch_off is detectable only with accelerometer data (spec rule), which accounts for most of the remaining all-days error | PASS (thresholds in `test_activity.py`) |
+| Same scenario through embedded Python in the simulator gives **identical** inference rows, feature digest and engine state as the Mac run | PASS |
+| Performance: one day of 50 Hz feature extraction ≈ **3.8 s in the iOS simulator** (2,288 minutes in 6.1 s), ≈ 3 s on the Mac; activity over 14 days ≈ 0.1 s | measured |
+| Real-data check (local `engine_check.md`) | ran, no errors |
+
+**Real-data check summary (owner's export, last 30 days; percentages only):** unknown minutes 0.2 %. Walking recall inside the owner's Apple Watch walking workouts 62 % (export has no phone motion or raw data, so steps + HR only). Auto-detected Oura "walking" workouts aren't walks (D-15). Cycling is undetectable without phone motion or raw data (3 short workouts). Wake prediction within 30 min on 70 % of nights, mean absolute error 50 min. Plans were "followed" (in bed within 30 min of target) on 24 % of nights. The learning step shortened wind-down to 30 min (short measured latencies). Thresholds changed: only the multi-source step fix (D-14), which is a bug fix, not tuning.

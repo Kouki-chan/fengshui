@@ -73,7 +73,8 @@ def _prorate(rows, w: Window, out: list) -> None:
                 out[mid - w.start] = (out[mid - w.start] or 0.0) + rate * ov
 
 
-def load(conn: sqlite3.Connection, start: int, end: int, tz: str, now: float) -> Window:
+def load(conn: sqlite3.Connection, start: int, end: int, tz: str, now: float,
+         workout_override: bool = True) -> Window:
     zone = ZoneInfo(tz)
     w = Window(start, end, zone)
     n = w.n
@@ -86,14 +87,30 @@ def load(conn: sqlite3.Connection, start: int, end: int, tz: str, now: float) ->
         return conn.execute("SELECT value, start_ts, end_ts FROM processed_samples WHERE label=? AND deleted=0 "
                             "AND end_ts >= ? AND start_ts < ? ORDER BY start_ts", (label, t0, t1)).fetchall()
 
-    steps = samples("step_count")
-    _prorate(steps, w, w.steps)
+    def per_source_max(label: str, out: list) -> list:
+        # Watch, iPhone and e.g. a ring all record the same steps: summing them double-counts
+        # (HealthKit de-duplicates too). Prorate each source separately, keep the minute's maximum.
+        rows = conn.execute("SELECT COALESCE(source_name, ''), value, start_ts, end_ts FROM processed_samples "
+                            "WHERE label=? AND deleted=0 AND end_ts >= ? AND start_ts < ? ORDER BY start_ts",
+                            (label, t0, t1)).fetchall()
+        by_src: dict[str, list] = {}
+        for src, v, a, b in rows:
+            by_src.setdefault(src, []).append((v, a, b))
+        for src_rows in by_src.values():
+            tmp = [None] * n
+            _prorate(src_rows, w, tmp)
+            for i, v in enumerate(tmp):
+                if v is not None and (out[i] is None or v > out[i]):
+                    out[i] = v
+        return [(v, a, b) for _, v, a, b in rows]
+
+    steps = per_source_max("step_count", w.steps)
     # Zero steps is evidence only on local days where a step source was active.
     step_days = {datetime.fromtimestamp(s, zone).date() for _, s, _ in steps}
     for i in range(n):
         if w.steps[i] is None and datetime.fromtimestamp((start + i) * 60, zone).date() in step_days:
             w.steps[i] = 0.0
-    _prorate(samples("flights_climbed"), w, w.flights)
+    per_source_max("flights_climbed", w.flights)
 
     # Heart rate: HealthKit samples + tier-3 session HR chunks, minute means.
     acc: dict[int, list[float]] = {}
@@ -142,9 +159,10 @@ def load(conn: sqlite3.Connection, start: int, end: int, tz: str, now: float) ->
     for night in sleep.nights(conn, tz, t0 - 86400, t1 + 86400):
         for mid in range(max(minute_id(night.onset), start), min(minute_id(night.wake - 1e-6), end - 1) + 1):
             w.fixed[mid - start] = "sleep"
-    for uuid, typ, s, e in conn.execute("SELECT hk_uuid, value_text, start_ts, end_ts FROM processed_samples "
-                                        "WHERE label='workout' AND deleted=0 AND end_ts >= ? AND start_ts < ? "
-                                        "ORDER BY start_ts", (t0, t1)):
+    workouts = conn.execute("SELECT hk_uuid, value_text, start_ts, end_ts FROM processed_samples "
+                            "WHERE label='workout' AND deleted=0 AND end_ts >= ? AND start_ts < ? "
+                            "ORDER BY start_ts", (t0, t1)).fetchall() if workout_override else []
+    for uuid, typ, s, e in workouts:
         w.workouts.append((uuid, typ))
         for mid in range(max(minute_id(s), start), min(minute_id(e - 1e-6), end - 1) + 1):
             w.fixed[mid - start] = "workout"
@@ -519,7 +537,8 @@ def run(conn: sqlite3.Connection, ctx: dict) -> dict:
         start = row[0]
     if end - start < 1:
         return {"rows_written": 0}
-    w = load(conn, start, end, tz, now)
+    # calibrate.py turns the workout override off to measure detection against logged workouts.
+    w = load(conn, start, end, tz, now, workout_override=ctx.get("workout_override", True))
     scores, sources = score_minutes(w)
     path = viterbi(scores, w.fixed)
     bouts = enforce_min_lengths(to_bouts(path, w), scores)

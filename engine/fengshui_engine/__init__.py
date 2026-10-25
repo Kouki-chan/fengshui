@@ -13,7 +13,7 @@ def version() -> str:
 
 
 def run(db_path: str, *, now_ts: float, tz: str, where: str,
-        tasks: list[str] | None = None) -> dict:
+        tasks: list[str] | None = None, options: dict | None = None) -> dict:
     """Run the requested tasks (default: all due tasks) against the SQLite DB.
 
     Idempotent; uses engine_state watermarks. Returns a summary dict
@@ -21,4 +21,4 @@ def run(db_path: str, *, now_ts: float, tz: str, where: str,
     """
     # Imported lazily so `version()` stays cheap for start-up checks.
     from .runner import run as _run
-    return _run(db_path, now_ts=now_ts, tz=tz, where=where, tasks=tasks)
+    return _run(db_path, now_ts=now_ts, tz=tz, where=where, tasks=tasks, options=options)

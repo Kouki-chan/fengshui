@@ -31,6 +31,15 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(try again.count("SELECT COUNT(*) FROM schema_version"), 1)
     }
 
+    func testOpensDatabaseCreatedByPython() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("py-\(UUID()).sqlite")
+        let q = try DatabaseQueue(path: url.path)
+        try q.write { try $0.execute(sql: Schema.sql()) }      // as fengshui_engine.db.create does
+        try q.close()
+        let db = try AppDatabase(path: url.path)
+        XCTAssertEqual(try db.count("SELECT COUNT(*) FROM schema_version"), 1)
+    }
+
     func testPreferencesRoundTrip() throws {
         let db = try AppDatabase.temporary("prefs")
         try db.setPreference("x", ["a": 1])

@@ -41,6 +41,8 @@ run_layer() { # name, command...
 run_layer python-engine   "$ROOT/.venv/bin/pytest" -q "$ROOT/engine/tests"
 [ -d "$ROOT/scripts/tests" ] && run_layer python-importer "$ROOT/.venv/bin/pytest" -q "$ROOT/scripts/tests"
 [ -d "$ROOT/server/tests" ] && run_layer python-server "$ROOT/.venv/bin/pytest" -q "$ROOT/server/tests"
+# Phone/Mac engine parity: the Mac result the simulator test compares against.
+run_layer parity-prep     "$ROOT/.venv/bin/python" "$ROOT/engine/tests/parity.py"
 run_layer swift-kit       swift test --package-path "$ROOT/apple/FengshuiKit"
 run_layer xcodegen        bash -c "cd '$ROOT/apple' && '$ROOT/.tools/xcodegen/bin/xcodegen' generate --quiet"
 run_layer ios-unit        xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme FengshuiUnit \
