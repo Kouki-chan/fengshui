@@ -135,3 +135,19 @@ final class ContextTests: XCTestCase {
         XCTAssertEqual(fake.queries.first?.0, now - 7 * 86400)
     }
 }
+
+/// Regression (found during the device test): opening a second CLMonitor with the same name
+/// raised "Monitor name is not valid" right after onboarding. The real provider must reuse one.
+final class CoreLocationProviderTests: XCTestCase {
+    func testOneMonitorAcrossGeofencesAndStart() async {
+        let p = CoreLocationProvider()
+        await p.setGeofences([PlaceRegion(placeID: 1, lat: 40.1, lon: -75.2, radius: 150)])
+        await p.start { _ in }
+        await p.start { _ in }
+        await p.setGeofences([PlaceRegion(placeID: 1, lat: 40.1, lon: -75.2, radius: 150),
+                              PlaceRegion(placeID: 2, lat: 40.2, lon: -75.1, radius: 200)])
+        let ids = await p.monitoredIdentifiers()
+        XCTAssertEqual(ids, ["place-1", "place-2"])
+        await p.setGeofences([])
+    }
+}

@@ -30,10 +30,31 @@ final class HKHealthStoreAdapter: HealthStore, @unchecked Sendable {
         types.filter { Self.objectType($0) != nil }
     }
 
-    func requestAuthorization(read types: [HealthTypeInfo]) async throws {
-        let read = Set(types.compactMap(Self.objectType))
-        // Share only workouts: the watch saves tier-3 sessions as workouts (spec §6.1).
-        try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: read)
+    func requestAuthorization(read types: [HealthTypeInfo]) async throws -> HealthAuthResult {
+        // Characteristics (date of birth, sex…) are read too; the engine uses age for max HR.
+        let chars = HealthTypeCatalog.all.filter { $0.kind == .characteristic }
+        let all = types + chars
+        // If HealthKit rejects the request (e.g. a type it won't authorize on this device),
+        // retry with fewer kinds so the permission sheet still appears.
+        let special: Set<HealthTypeInfo.Kind> = [.stateOfMind, .scoredAssessment, .audiogram, .electrocardiogram]
+        let attempts: [(dropped: [String], types: [HealthTypeInfo])] = [
+            ([], all),
+            (special.map(\.rawValue).sorted(), all.filter { !special.contains($0.kind) }),
+            (["series"] + special.map(\.rawValue).sorted(),
+             all.filter { [.quantity, .category, .workout, .characteristic].contains($0.kind) }),
+        ]
+        var errors: [String] = []
+        for a in attempts {
+            let read = Set(a.types.compactMap(Self.objectType))
+            do {
+                // Share only workouts: the watch saves tier-3 sessions as workouts (spec §6.1).
+                try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: read)
+                return HealthAuthResult(requestedTypes: read.count, droppedKinds: a.dropped, errors: errors)
+            } catch {
+                errors.append("\(read.count) types: \(error.localizedDescription)")
+            }
+        }
+        throw NSError(domain: "Fengshui", code: 1, userInfo: [NSLocalizedDescriptionKey: errors.joined(separator: " | ")])
     }
 
     // MARK: Anchored queries

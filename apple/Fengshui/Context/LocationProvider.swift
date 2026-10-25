@@ -37,11 +37,15 @@ protocol LocationProvider: AnyObject, Sendable {
 /// as long as a monitor with the same name is re-created at launch.
 final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerDelegate, @unchecked Sendable {
     private let manager = CLLocationManager()
-    private var monitor: CLMonitor?
+    /// Exactly one CLMonitor per name may be open; a second open fails ("Monitor name is not
+    /// valid"). Everything goes through this one lazily created instance.
+    private let monitorLock = NSLock()
+    private var monitorTask: Task<CLMonitor, Never>?
+    private var eventsStarted = false
     private var handler: (@Sendable (LocationEvent) async -> Void)?
     private var authContinuation: CheckedContinuation<LocationAuthorization, Never>?
     private var locationContinuation: CheckedContinuation<(lat: Double, lon: Double), Error>?
-    private static let monitorName = "fengshui.places"
+    private static let monitorName = "FengshuiPlaces"
 
     override init() {
         super.init()
@@ -89,8 +93,9 @@ final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerD
             manager.startMonitoringVisits()
             manager.startMonitoringSignificantLocationChanges()
         }
-        let m = await CLMonitor(Self.monitorName)
-        monitor = m
+        let m = await sharedMonitor()
+        let first = monitorLock.withLock { defer { eventsStarted = true }; return !eventsStarted }
+        guard first else { return }
         Task {
             for try await e in await m.events {
                 await handler(.region(identifier: e.identifier, entered: e.state == .satisfied,
@@ -100,8 +105,7 @@ final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerD
     }
 
     func setGeofences(_ regions: [PlaceRegion]) async {
-        let m: CLMonitor
-        if let existing = monitor { m = existing } else { m = await CLMonitor(Self.monitorName); monitor = m }
+        let m = await sharedMonitor()
         let wanted = Dictionary(uniqueKeysWithValues: regions.map { ($0.identifier, $0) })
         for id in await m.identifiers where wanted[id] == nil { await m.remove(id) }
         for (id, r) in wanted {
@@ -112,8 +116,17 @@ final class CoreLocationProvider: NSObject, LocationProvider, CLLocationManagerD
     }
 
     func monitoredIdentifiers() async -> Set<String> {
-        guard let m = monitor else { return [] }
-        return Set(await m.identifiers)
+        Set(await sharedMonitor().identifiers)
+    }
+
+    private func sharedMonitor() async -> CLMonitor {
+        let task = monitorLock.withLock {
+            if let t = monitorTask { return t }
+            let t = Task { await CLMonitor(Self.monitorName) }
+            monitorTask = t
+            return t
+        }
+        return await task.value
     }
 
     // MARK: CLLocationManagerDelegate

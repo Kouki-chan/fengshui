@@ -120,6 +120,30 @@ final class HealthSyncTests: XCTestCase {
     }
 }
 
+extension HealthSyncTests {
+    /// A type HealthKit refuses (e.g. not authorized) is skipped; the backfill continues.
+    func testBackfillContinuesPastFailingType() async throws {
+        let db = try AppDatabase.temporary("skip")
+        let store = FailingTypeStore(samples: (0..<20).map { sample($0) })
+        let sync = HealthSync(db: db, store: store)
+        let n = try await sync.syncAll()
+        XCTAssertEqual(n, 20)
+        let failures = await sync.lastFailures
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertTrue(failures[0].hasPrefix("workout"))
+        XCTAssertEqual(try db.count("SELECT COUNT(*) FROM sync_state WHERE hk_type = 'HKWorkoutTypeIdentifier'"), 0)
+    }
+}
+
+final class FailingTypeStore: FakeHealthStore, @unchecked Sendable {
+    override func fetch(_ type: HealthTypeInfo, anchor: Data?, limit: Int) async throws -> HealthPage {
+        if type.kind == .workout {
+            throw NSError(domain: "com.apple.healthkit", code: 5, userInfo: [NSLocalizedDescriptionKey: "Authorization not determined"])
+        }
+        return try await super.fetch(type, anchor: anchor, limit: limit)
+    }
+}
+
 actor Box {
     var items: [String] = []
     func add(_ s: String) { items.append(s) }

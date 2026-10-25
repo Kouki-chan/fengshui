@@ -23,14 +23,23 @@ final class AppModel {
         onboardingDone = (try? env.db.preference("onboarding_done", as: Bool.self)) ?? false
     }
 
+    var healthAuthError: String?
+
     func requestHealth() async {
         do {
-            try await env.health.requestAuthorization(read: env.healthSync.readableTypes())
-            env.log.add("health_auth", "requested \(env.healthSync.readableTypes().count) types")
+            let r = try await env.health.requestAuthorization(read: env.healthSync.readableTypes())
+            try? env.db.setPreference("health_auth", r, now: env.clock.now)
+            env.log.add("health_auth", "requested \(r.requestedTypes) types, dropped \(r.droppedKinds)")
+            healthAuthError = nil
+            step = .recording
         } catch {
-            env.log.add("health_auth_error", "\(error)")
+            // Stay on this step and show why: continuing would back-fill nothing.
+            let msg = "\(error.localizedDescription)"
+            try? env.db.setPreference("health_auth", HealthAuthResult(requestedTypes: 0, droppedKinds: [], errors: [msg]),
+                                      now: env.clock.now)
+            env.log.add("health_auth_error", msg)
+            healthAuthError = msg
         }
-        step = .recording
     }
 
     func placesDone() async { step = .sleep }

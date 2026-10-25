@@ -36,6 +36,15 @@ struct Diagnostics: Sendable {
         let supported = env.healthSync.readableTypes().count
         checks.append(Check(name: "healthkit_types_readable", ok: supported > 150,
                             detail: "\(supported) of \(HealthTypeCatalog.sampleTypes.count) catalog types exist on this OS"))
+        if let auth = (try? db.preference("health_auth", as: HealthAuthResult.self)) ?? nil {
+            checks.append(Check(name: "health_authorization_request", ok: auth.requestedTypes > 0,
+                                detail: "\(auth.requestedTypes) types requested" +
+                                    (auth.droppedKinds.isEmpty ? "" : ", dropped: \(auth.droppedKinds.joined(separator: ","))") +
+                                    (auth.errors.isEmpty ? "" : " — errors: \(auth.errors.joined(separator: " | "))")))
+        }
+        let failures = await env.healthSync.lastFailures
+        checks.append(Check(name: "healthkit_types_failing", ok: failures.isEmpty,
+                            detail: failures.isEmpty ? "none" : "\(failures.count): \(failures.prefix(5).joined(separator: "; "))"))
         let labels = (try? db.labelCounts()) ?? []
         checks.append(Check(name: "healthkit_data_arrived", ok: labels.contains { $0.label == "heart_rate" } && labels.contains { $0.label == "step_count" },
                             detail: "\(labels.count) labels, \(labels.reduce(0) { $0 + $1.count }) samples"))

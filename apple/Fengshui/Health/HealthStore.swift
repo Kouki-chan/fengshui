@@ -34,6 +34,14 @@ struct HealthPage: Sendable {
     var hasMore: Bool
 }
 
+struct HealthAuthResult: Sendable, Equatable, Codable {
+    var requestedTypes: Int
+    /// Type kinds left out because HealthKit rejected the request that included them.
+    var droppedKinds: [String]
+    /// Errors from the attempts that failed (shown in onboarding and Diagnostics).
+    var errors: [String]
+}
+
 enum HealthAuthorizationState: Sendable, Equatable {
     case notDetermined, requested, unavailable
 }
@@ -43,8 +51,9 @@ enum HealthAuthorizationState: Sendable, Equatable {
 protocol HealthStore: Sendable {
     var isAvailable: Bool { get }
 
-    /// Requests read access for `types` and share access for workouts.
-    func requestAuthorization(read types: [HealthTypeInfo]) async throws
+    /// Requests read access for `types` (plus characteristics) and share access for workouts.
+    /// Falls back to smaller type sets if HealthKit rejects the full request, and reports what happened.
+    func requestAuthorization(read types: [HealthTypeInfo]) async throws -> HealthAuthResult
 
     /// Types that resolve to an HKObjectType on this OS (the rest are logged and skipped).
     func supportedTypes(_ types: [HealthTypeInfo]) -> [HealthTypeInfo]
