@@ -60,6 +60,8 @@ actor EngineRunner {
                 "\(trigger) \(tasks.joined(separator: ",")) +\(rec.rowsWritten) \(String(format: "%.2f", rec.seconds))s \(rec.error ?? "")")
         appendLog(rec)
         await afterRun(rec)
+        // Screens showing inferences (Today) refresh on this.
+        await MainActor.run { Foundation.NotificationCenter.default.post(name: .engineDidRun, object: nil) }
         return rec
     }
 
@@ -73,4 +75,8 @@ actor EngineRunner {
     nonisolated func history() -> [RunRecord] {
         ((try? db.preference(Self.logKey, as: [RunRecord].self)) ?? []).reversed()
     }
+}
+
+extension Notification.Name {
+    static let engineDidRun = Notification.Name("FengshuiEngineDidRun")
 }

@@ -21,3 +21,14 @@ extension AppDatabase {
         try writer.read { db in try Int.fetchOne(db, sql: sql) ?? 0 }
     }
 }
+
+extension AppDatabase {
+    /// Synchronous single-value helpers (callable from async tests without sending Rows).
+    func double(_ sql: String) throws -> Double? {
+        try writer.read { db in try Double.fetchOne(db, sql: sql) }
+    }
+
+    func int64(_ sql: String) throws -> Int64? {
+        try writer.read { db in try Int64.fetchOne(db, sql: sql) }
+    }
+}

@@ -13,6 +13,8 @@ struct OnboardingView: View {
                 case .health: health
                 case .recording: RecordingView(env: model.env, onboarding: true) { model.step = .places }
                 case .places: PlacesView(env: model.env, onboarding: true) { Task { await model.placesDone() } }
+                case .sleep: SleepQuestionsView(model: model)
+                case .notifications: notificationsStep
                 case .backfill: BackfillView(model: model)
                 }
             }
@@ -31,6 +33,21 @@ struct OnboardingView: View {
             Button("Get started") { model.step = .health }
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("onboarding.start")
+        }
+    }
+
+    private var notificationsStep: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "bell.badge").font(.system(size: 56)).foregroundStyle(.orange)
+            Text("Wind-down reminders").font(.title.bold())
+            Text("Fengshui reminds you when it's time to start winding down, and again when you get home late.")
+                .multilineTextAlignment(.center).foregroundStyle(.secondary)
+            Spacer()
+            Button("Allow notifications") { Task { await model.notificationsDone(requestPermission: true) } }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("onboarding.notifications")
+            Button("Not now") { Task { await model.notificationsDone(requestPermission: false) } }
         }
     }
 
@@ -79,5 +96,40 @@ struct BackfillView: View {
                 .disabled(!model.backfillComplete)
                 .accessibilityIdentifier("backfill.continue")
         }
+    }
+}
+
+/// Cold-start sleep questions (spec §10.2): used until ≥ 3 nights of data exist.
+struct SleepQuestionsView: View {
+    let model: AppModel
+    @State private var workday = Self.time(7, 0)
+    @State private var freeday = Self.time(8, 30)
+    @State private var bedtime = Self.time(23, 0)
+
+    static func time(_ h: Int, _ m: Int) -> Date {
+        Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date()) ?? Date()
+    }
+
+    static func hhmm(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                DatePicker("Workday wake-up", selection: $workday, displayedComponents: .hourAndMinute)
+                DatePicker("Free-day wake-up", selection: $freeday, displayedComponents: .hourAndMinute)
+                DatePicker("Usual bedtime", selection: $bedtime, displayedComponents: .hourAndMinute)
+            } header: { Text("Your usual sleep") } footer: {
+                Text("Used for the first few nights, until Fengshui has learned from your sleep data.")
+            }
+            Button("Continue") {
+                model.sleepDone(workdayWake: Self.hhmm(workday), freedayWake: Self.hhmm(freeday), bedtime: Self.hhmm(bedtime))
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("sleep.continue")
+        }
+        .navigationTitle("Sleep")
     }
 }

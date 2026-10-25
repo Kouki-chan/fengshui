@@ -8,7 +8,7 @@ import Observation
 final class AppModel {
     /// Spec §15 order; steps for later phases are inserted where they belong.
     enum OnboardingStep: String, CaseIterable, Codable {
-        case welcome, health, recording, places, backfill
+        case welcome, health, recording, places, sleep, notifications, backfill
     }
 
     let env: AppEnvironment
@@ -33,7 +33,20 @@ final class AppModel {
         step = .recording
     }
 
-    func placesDone() async {
+    func placesDone() async { step = .sleep }
+
+    func sleepDone(workdayWake: String, freedayWake: String, bedtime: String) {
+        // Cold-start inputs for wind-down until ≥ 3 nights exist (spec §10.2).
+        try? env.db.setPreference("onboarding_sleep", ["workday_wake": workdayWake, "freeday_wake": freedayWake,
+                                                       "bedtime": bedtime], now: env.clock.now)
+        step = .notifications
+    }
+
+    func notificationsDone(requestPermission: Bool) async {
+        if requestPermission {
+            let ok = await env.notifications.requestAuthorization()
+            env.log.add("notif_auth", ok ? "granted" : "denied")
+        }
         step = .backfill
         await runBackfill()
     }
@@ -60,6 +73,7 @@ final class AppModel {
         Task {
             await env.delivery.register()
             await env.places.start()
+            await env.engine.run(trigger: "onboarding")
         }
     }
 
@@ -69,6 +83,11 @@ final class AppModel {
         await env.delivery.register()
         await env.places.start()
         await env.delivery.syncNow(trigger: "foreground")
+        await env.windDown.reconcileDelivered()
+        if let expiry = SigningExpiry.expirationDate() {
+            await SigningExpiry.scheduleReminder(expiry: expiry, now: env.clock.now, center: env.notifications,
+                                                 timeZone: env.timeZone)
+        }
     }
 }
 

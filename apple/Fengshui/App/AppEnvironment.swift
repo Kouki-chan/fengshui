@@ -16,12 +16,15 @@ final class AppEnvironment: Sendable {
     let watchImporter: WatchImporter
     let watchLink: WatchLink
     let engine: EngineRunner
+    let notifications: NotificationCenter
+    let windDown: WindDownScheduler
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
 
     init(db: AppDatabase, clock: Clock, health: HealthStore, location: LocationProvider, motion: MotionHistory,
-         watchLink makeLink: (WatchImporter, EventLog, EngineRunner) -> WatchLink, testScenario: String?, timeZone: TimeZone) {
+         watchLink makeLink: (WatchImporter, EventLog, EngineRunner) -> WatchLink,
+         notifications: NotificationCenter, testScenario: String?, timeZone: TimeZone) {
         self.db = db
         self.clock = clock
         self.health = health
@@ -34,10 +37,17 @@ final class AppEnvironment: Sendable {
         healthSync = sync
         let motionImporter = MotionImporter(db: db, history: motion, clock: clock)
         self.motion = motionImporter
-        let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log)
+        self.notifications = notifications
+        let windDown = WindDownScheduler(db: db, center: notifications, clock: clock, timeZone: timeZone, log: log)
+        self.windDown = windDown
+        // Every engine run may have written or superseded a plan → (re)schedule (spec §11).
+        let engine = EngineRunner(db: db, clock: clock, timeZone: timeZone, log: log) { _ in await windDown.sync() }
         self.engine = engine
         places = PlaceService(db: db, location: location, log: log, clock: clock,
-                              onHomeArrival: { _ in await engine.run(EngineRunner.lightTasks, trigger: "home_arrival") },
+                              onHomeArrival: { ts in
+                                  await engine.run(EngineRunner.lightTasks, trigger: "home_arrival")
+                                  await windDown.homeArrival(at: ts)
+                              },
                               onVisit: { await engine.run(EngineRunner.lightTasks, trigger: "visit") })
         let importer = WatchImporter(db: db, clock: clock)
         watchImporter = importer
@@ -82,6 +92,9 @@ final class AppEnvironment: Sendable {
                                   health: FakeHealthStore(scenario: scenario),
                                   location: FakeLocationProvider(coordinate: (home?.lat ?? 40.1, home?.lon ?? -75.2)),
                                   motion: FakeMotionHistory(scenario: scenario), watchLink: { _, _, _ in FakeWatchLink() },
+                                  // -FengshuiRealNotifications: the permission-granting UI test uses the real center.
+                                  notifications: arguments.contains("-FengshuiRealNotifications")
+                                      ? SystemNotificationCenter() : FakeNotificationCenter(),
                                   testScenario: name,
                                   timeZone: TimeZone(identifier: scenario.tz) ?? .current)
         }
@@ -93,6 +106,6 @@ final class AppEnvironment: Sendable {
                                       await engine.run(["features", "activity", "wind_down"], trigger: "watch_import")
                                   })
                               },
-                              testScenario: nil, timeZone: .current)
+                              notifications: SystemNotificationCenter(), testScenario: nil, timeZone: .current)
     }
 }

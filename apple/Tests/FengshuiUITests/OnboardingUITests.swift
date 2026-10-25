@@ -46,11 +46,20 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Climbing gym"].waitForExistence(timeout: 5))
         app.buttons["places.continue"].tap()
 
+        // Sleep questions (defaults) and notifications (fake center in test mode).
+        XCTAssertTrue(app.buttons["sleep.continue"].waitForExistence(timeout: 5))
+        app.buttons["sleep.continue"].tap()
+        XCTAssertTrue(app.buttons["onboarding.notifications"].waitForExistence(timeout: 5))
+        app.buttons["onboarding.notifications"].tap()
+
         XCTAssertTrue(app.progressIndicators["backfill.progress"].waitForExistence(timeout: 10))
         let cont = app.buttons["backfill.continue"]
         XCTAssertTrue(waitEnabled(cont), "backfill did not finish within 60 s")
         XCTAssertTrue(app.staticTexts["backfill.count"].label.contains("samples"))
         cont.tap()
+
+        // Today shows tonight's plan once the post-onboarding engine run finishes.
+        XCTAssertTrue(app.staticTexts["Start winding down"].waitForExistence(timeout: 30))
 
         app.tabBars.buttons["Settings"].tap()
         app.buttons["settings.debug"].tap()

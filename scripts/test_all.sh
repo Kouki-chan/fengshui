@@ -45,6 +45,10 @@ run_layer python-engine   "$ROOT/.venv/bin/pytest" -q "$ROOT/engine/tests"
 run_layer parity-prep     "$ROOT/.venv/bin/python" "$ROOT/engine/tests/parity.py"
 run_layer swift-kit       swift test --package-path "$ROOT/apple/FengshuiKit"
 run_layer xcodegen        bash -c "cd '$ROOT/apple' && '$ROOT/.tools/xcodegen/bin/xcodegen' generate --quiet"
+# Grants notification permission on the simulator (once; persists) for the real-center test.
+run_layer ios-notif-perm  xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme Fengshui \
+                            -only-testing:FengshuiUITests/NotificationPermissionUITests \
+                            -destination "platform=iOS Simulator,id=$IPHONE" -derivedDataPath "$DD"
 run_layer ios-unit        xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme FengshuiUnit \
                             -destination "platform=iOS Simulator,id=$IPHONE" -derivedDataPath "$DD"
 # The iOS tests write build/swift_created.sqlite; the engine must accept it.
@@ -53,7 +57,8 @@ run_layer watch-unit     xcodebuild test -project "$ROOT/apple/Fengshui.xcodepro
                             -destination "platform=watchOS Simulator,id=$WATCH" -derivedDataPath "$DD"
 if [ $QUICK -eq 0 ]; then
   run_layer ios-ui        xcodebuild test -project "$ROOT/apple/Fengshui.xcodeproj" -scheme Fengshui \
-                            -only-testing:FengshuiUITests -destination "platform=iOS Simulator,id=$IPHONE" \
+                            -only-testing:FengshuiUITests/LaunchUITests -only-testing:FengshuiUITests/OnboardingUITests \
+                            -destination "platform=iOS Simulator,id=$IPHONE" \
                             -derivedDataPath "$DD"
 fi
 if [ $LIVE -eq 1 ] && [ -x "$ROOT/scripts/live_server_test.sh" ]; then

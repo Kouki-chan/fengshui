@@ -195,6 +195,7 @@ def plan(conn: sqlite3.Connection, now: float, tz: str) -> dict:
             and (tomorrow - n.wake_date).days <= C.LATENCY_NIGHTS]
     latency = statistics.median(lats) if lats else C.LATENCY_DEFAULT_MIN
     latency = min(max(latency, C.LATENCY_CLAMP[0]), C.LATENCY_CLAMP[1])
+    apply_user_length(conn)
     wd_len = float(db.get_state(conn, LEN_KEY, str(C.WIND_DOWN_LEN_DEFAULT)))
 
     # Step 6 inputs.
@@ -287,6 +288,19 @@ def _confidence(nights, zone) -> float:
     if circular_sd([clock_min(x.wake, zone) for x in nights]) > C.CONFIDENCE_WAKE_SD_MIN:
         conf *= C.CONFIDENCE_WAKE_SD_FACTOR
     return round(conf, 3)
+
+
+def apply_user_length(conn: sqlite3.Connection) -> None:
+    """Settings → wind-down length (a preference written by the app) replaces the learned
+    length once per change; learning continues from there."""
+    p = pref(conn, "wind_down_len_user")
+    if not p:
+        return
+    applied = float(db.get_state(conn, "wind_down.len_user_applied", "0"))
+    if p["set_at"] > applied:
+        v = min(max(float(p["value"]), C.WIND_DOWN_LEN_RANGE[0]), C.WIND_DOWN_LEN_RANGE[1])
+        db.set_state(conn, LEN_KEY, str(v))
+        db.set_state(conn, "wind_down.len_user_applied", str(p["set_at"]))
 
 
 # ---------------------------------------------------------------- tasks
