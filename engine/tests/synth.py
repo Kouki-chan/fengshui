@@ -105,15 +105,15 @@ def plan_workday(d: date, tz: ZoneInfo, rnd: random.Random, run: bool) -> list[S
         s.append(Seg(s[-1].end, s[-1].end + 34 * 60, "run", None, workout="running"))
         s.append(Seg(s[-1].end, s[-1].end + 10 * 60, "walk", None))
     s.append(Seg(s[-1].end, _t(d, "20:30", tz) + j(), "light", "home"))
-    s.append(Seg(s[-1].end, s[-1].end + 55 * 60, "off", "home"))       # charging
+    s.append(Seg(s[-1].end, s[-1].end + 70 * 60, "off", "home"))       # charging
     bed = _t(d, "23:20", tz) + j()
     s.append(Seg(s[-1].end, bed, "sedentary", "home"))
     return [x for x in s if x.end > x.start]
 
 
-def plan_freeday(d: date, tz: ZoneInfo, rnd: random.Random, gym: bool) -> list[Seg]:
+def plan_freeday(d: date, tz: ZoneInfo, rnd: random.Random, gym: bool, wake_at: str = "08:30") -> list[Seg]:
     j = lambda: rnd.randint(-10, 10) * 60  # noqa: E731
-    wake = _t(d, "08:30", tz) + j()
+    wake = _t(d, wake_at, tz) + j()
     s = [Seg(wake, wake + 70 * 60, "sedentary", "home")]
     s.append(Seg(s[-1].end, s[-1].end + 45 * 60, "light", "home"))
     s.append(Seg(s[-1].end, s[-1].end + 25 * 60, "walk", None))
@@ -124,7 +124,7 @@ def plan_freeday(d: date, tz: ZoneInfo, rnd: random.Random, gym: bool) -> list[S
         s.append(Seg(s[-1].end, s[-1].end + 45 * 60, "cycle", "gym", workout="cycling"))
         s.append(Seg(s[-1].end, s[-1].end + 12 * 60, "drive", None))
     s.append(Seg(s[-1].end, _t(d, "18:00", tz) + j(), "light", "home"))
-    s.append(Seg(s[-1].end, s[-1].end + 60 * 60, "off", "home"))
+    s.append(Seg(s[-1].end, s[-1].end + 75 * 60, "off", "home"))
     s.append(Seg(s[-1].end, _t(d, "23:50", tz) + j(), "sedentary", "home"))
     return [x for x in s if x.end > x.start]
 
@@ -160,6 +160,7 @@ class Builder:
         self.visits: list[list] = []
         self.truth: list[list] = []
         self.raw_plan: list[list] = []
+        self.onsets: dict[float, float] = {}   # in-bed start -> sleep onset
         self.n = 0
 
     def uid(self) -> str:
@@ -176,7 +177,15 @@ class Builder:
         for sg in segs:
             hr, spm, phone, truth, rawkind = ACT[sg.act]
             dur = sg.end - sg.start
-            self.truth.append([sg.start, sg.end, truth if not (sg.act == "cycle" and sg.workout) else "workout"])
+            if sg.workout and not watch_on:
+                truth = {"running": "running", "cycling": "cycling"}[sg.workout]   # no workout logged
+            if sg.act == "sleep" and dur < 3 * 3600:
+                self.truth.append([sg.start, sg.end, "sedentary"])                  # a nap, not main sleep
+            elif sg.act == "sleep" and sg.start in self.onsets:
+                self.truth.append([sg.start, self.onsets[sg.start], "sedentary"])
+                self.truth.append([self.onsets[sg.start], sg.end, "sleep"])
+            else:
+                self.truth.append([sg.start, sg.end, "workout" if sg.workout and watch_on else truth])
             if raw and watch_on:
                 self.raw_plan.append([sg.start, sg.end, rawkind])
             # iPhone motion (the phone stays still on the desk / nightstand).
@@ -231,6 +240,7 @@ class Builder:
         latency = rnd.uniform(8, 25) * 60
         self.sample("HKCategoryTypeIdentifierSleepAnalysis", 0, "in_bed", None, onset_in_bed, wake, src)
         t = onset_in_bed + latency
+        self.onsets[onset_in_bed] = t
         if phone_only:
             self.sample("HKCategoryTypeIdentifierSleepAnalysis", 1, "asleep_unspecified", None, t, wake - 300, src)
             return
@@ -283,7 +293,9 @@ def build(sc: Scenario, start: date, n_days: int, kind: str) -> dict:
         d = start + timedelta(days=i)
         wd = d.weekday() < 5
         if kind == "shift":
-            plans.append((d, plan_shift(d, tz, rnd) if wd or d.weekday() == 6 else plan_freeday(d, tz, rnd, False)))
+            # Free day after a night shift starts mid-afternoon.
+            plans.append((d, plan_shift(d, tz, rnd) if wd or d.weekday() == 6
+                          else plan_freeday(d, tz, rnd, False, wake_at="14:00")))
         else:
             plans.append((d, plan_workday(d, tz, rnd, run=d.weekday() in (1, 3)) if wd
                           else plan_freeday(d, tz, rnd, gym=d.weekday() == 5)))
@@ -352,7 +364,7 @@ def accel_minute(kind: str, t0: float, rnd: random.Random, rate: float = 50.0) -
     if kind == "sleep" and rnd.random() < 0.15:     # occasional turn-over changes orientation
         gx, gz = 0.6, -0.8
     f = {"walk": 1.85, "stairs": 1.6, "run": 2.75, "cycle": 1.3}.get(kind)
-    amp = {"walk": 0.32, "stairs": 0.38, "run": 0.95, "cycle": 0.10, "light": 0.10, "drive": 0.025,
+    amp = {"walk": 0.32, "stairs": 0.38, "run": 0.95, "cycle": 0.16, "light": 0.12, "drive": 0.025,
            "desk": 0.012, "still": 0.006, "sleep": 0.004, "off": 0.0015}[kind]
     phase = rnd.uniform(0, 2 * math.pi)
     for i in range(n):

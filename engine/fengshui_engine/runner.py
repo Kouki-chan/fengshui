@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import time
 
-from . import ENGINE_VERSION, db, places
+from . import ENGINE_VERSION, activity, db, features, places
 
 # name -> callable(conn, ctx) -> dict(rows_written=..., warnings=[...]).
 # Order matters when running "all": features before activity before wind_down.
 TASKS: dict = {
+    "features": features.run,
+    "activity": activity.run,
     "place_suggestions": places.run,
 }
 
