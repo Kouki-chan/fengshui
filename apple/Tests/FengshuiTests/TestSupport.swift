@@ -16,11 +16,6 @@ func sample(_ i: Int, type: String = "HKQuantityTypeIdentifierHeartRate", value:
                  sourceName: source, sourceBundle: nil, device: nil, metadataJSON: nil)
 }
 
-extension AppDatabase {
-    func count(_ sql: String) throws -> Int {
-        try writer.read { db in try Int.fetchOne(db, sql: sql) ?? 0 }
-    }
-}
 
 extension AppDatabase {
     /// Synchronous single-value helpers (callable from async tests without sending Rows).

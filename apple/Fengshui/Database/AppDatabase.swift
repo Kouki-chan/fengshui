@@ -75,6 +75,11 @@ final class AppDatabase: Sendable {
 
     // MARK: Debug helpers
 
+    /// A single integer from SQL (counts for the debug screen, Diagnostics and tests).
+    func count(_ sql: String) throws -> Int {
+        try writer.read { db in try Int.fetchOne(db, sql: sql) ?? 0 }
+    }
+
     func rowCounts() throws -> [String: Int] {
         try writer.read { db in
             var out: [String: Int] = [:]
