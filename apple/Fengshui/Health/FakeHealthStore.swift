@@ -3,7 +3,7 @@ import Foundation
 /// In-memory HealthKit stand-in for unit tests and `-FengshuiTestMode` (spec §14.1).
 /// Anchors are the integer index of the next change in an append-only change log,
 /// which mimics HKQueryAnchor: samples added and deleted later show up in later pages.
-final class FakeHealthStore: HealthStore, @unchecked Sendable {
+class FakeHealthStore: HealthStore, @unchecked Sendable {
     enum Change { case add(HealthSample), delete(String) }
 
     private let lock = NSLock()
@@ -55,8 +55,9 @@ final class FakeHealthStore: HealthStore, @unchecked Sendable {
         for o in obs { await o() }
     }
 
-    func requestAuthorization(read types: [HealthTypeInfo]) async throws {
+    func requestAuthorization(read types: [HealthTypeInfo]) async throws -> HealthAuthResult {
         lock.withLock { authorizationRequested = types }
+        return HealthAuthResult(requestedTypes: types.count, droppedKinds: [], errors: [])
     }
 
     func supportedTypes(_ types: [HealthTypeInfo]) -> [HealthTypeInfo] { types }

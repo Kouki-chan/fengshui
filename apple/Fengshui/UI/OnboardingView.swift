@@ -60,9 +60,15 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Allow Health access") { Task { await model.requestHealth() } }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("onboarding.health")
+            if let err = model.healthAuthError {
+                Text("Health permission failed: \(err)").font(.caption).foregroundStyle(.red)
+                    .accessibilityIdentifier("onboarding.healthError")
+            }
+            Button(model.healthAuthError == nil ? "Allow Health access" : "Try again") {
+                Task { await model.requestHealth() }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("onboarding.health")
         }
     }
 }
@@ -82,6 +88,11 @@ struct BackfillView: View {
                     .accessibilityIdentifier("backfill.count")
                 if let l = p.currentLabel, !p.finished {
                     Text(l).font(.caption).foregroundStyle(.secondary)
+                }
+                if !p.failedTypes.isEmpty {
+                    Text("\(p.failedTypes.count) types skipped (they'll be retried): \(p.failedTypes.prefix(3).joined(separator: "; "))")
+                        .font(.caption2).foregroundStyle(.orange)
+                        .accessibilityIdentifier("backfill.skipped")
                 }
             } else {
                 ProgressView()

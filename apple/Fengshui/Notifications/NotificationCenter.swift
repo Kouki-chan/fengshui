@@ -10,6 +10,15 @@ struct LocalNotification: Sendable, Equatable {
     var userInfo: [String: String] = [:]
 }
 
+/// A delivered notification's content, for the in-app inbox.
+struct DeliveredNotification: Sendable, Equatable {
+    var identifier: String
+    var date: Date
+    var title: String
+    var body: String
+    var kind: String?
+}
+
 struct PendingNotification: Sendable, Equatable {
     var identifier: String
     var fireDate: Date?
@@ -23,6 +32,9 @@ protocol NotificationCenter: Sendable {
     func pending() async -> [PendingNotification]
     /// Delivered notifications still in Notification Center, with their delivery dates.
     func delivered() async -> [(identifier: String, date: Date)]
+    func deliveredContent() async -> [DeliveredNotification]
+    /// The app icon's badge (unread inbox messages).
+    func setBadge(_ count: Int) async
 }
 
 final class SystemNotificationCenter: NotificationCenter, @unchecked Sendable {
@@ -42,7 +54,7 @@ final class SystemNotificationCenter: NotificationCenter, @unchecked Sendable {
         content.body = n.body
         content.sound = .default
         content.userInfo = n.userInfo
-        content.categoryIdentifier = "wind_down"
+        content.categoryIdentifier = n.userInfo["kind"] == nil || n.userInfo["kind"] == "wind_down" ? "wind_down" : ""
         let trigger: UNNotificationTrigger?
         if let date = n.fireDate {
             // Calendar trigger at the exact local time: this is what keeps delivery within the
@@ -72,6 +84,22 @@ final class SystemNotificationCenter: NotificationCenter, @unchecked Sendable {
     func delivered() async -> [(identifier: String, date: Date)] {
         await center.deliveredNotifications().map { ($0.request.identifier, $0.date) }
     }
+
+    func deliveredContent() async -> [DeliveredNotification] {
+        await center.deliveredNotifications().map {
+            let c = $0.request.content
+            // Remote monitor alerts carry the server's alert id: file them under the same identifier the
+            // monitor client uses, so one alert is one inbox message.
+            let alertID = (c.userInfo["alert_id"] as? NSNumber)?.stringValue ?? c.userInfo["alert_id"] as? String
+            return DeliveredNotification(identifier: alertID.map { "monitor-\($0)" } ?? $0.request.identifier, date: $0.date,
+                                         title: c.title, body: c.body,
+                                         kind: (c.userInfo["kind"] as? String) ?? (c.userInfo["fs"] as? String))
+        }
+    }
+
+    func setBadge(_ count: Int) async {
+        try? await center.setBadgeCount(count)
+    }
 }
 
 final class FakeNotificationCenter: NotificationCenter, @unchecked Sendable {
@@ -81,6 +109,7 @@ final class FakeNotificationCenter: NotificationCenter, @unchecked Sendable {
     private(set) var removed: [String] = []
     var deliveredItems: [(identifier: String, date: Date)] = []
     var authorized = true
+    private(set) var badge = 0
 
     func requestAuthorization() async -> Bool { authorized }
 
@@ -103,6 +132,19 @@ final class FakeNotificationCenter: NotificationCenter, @unchecked Sendable {
     }
 
     func delivered() async -> [(identifier: String, date: Date)] { lock.withLock { deliveredItems } }
+
+    func deliveredContent() async -> [DeliveredNotification] {
+        lock.withLock {
+            deliveredItems.compactMap { d in
+                added.last { $0.identifier == d.identifier }.map {
+                    DeliveredNotification(identifier: d.identifier, date: d.date, title: $0.title, body: $0.body,
+                                          kind: $0.userInfo["kind"])
+                }
+            }
+        }
+    }
+
+    func setBadge(_ count: Int) async { lock.withLock { badge = count } }
 
     /// Simulates the system delivering a pending notification.
     func deliver(_ id: String, at date: Date) {

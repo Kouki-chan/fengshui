@@ -2,10 +2,14 @@
 
 Endpoints: GET /health · POST /sync · POST /raw/archive · GET /raw · POST /compute ·
 POST /diagnostics (+ GET /diagnostics/latest for reading uploads during the device test).
+Health monitor (DECISIONS D-19): POST /monitor/sessions · GET /monitor/sessions/current ·
+POST /monitor/sessions/{id}/stop · POST /monitor/readings · GET /monitor/alerts.
+MCP (DECISIONS D-21): POST /mcp, the read-only data tools for any MCP client.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hmac
 import json
@@ -21,6 +25,8 @@ from pydantic import BaseModel, Field
 import fengshui_engine
 from fengshui_engine import ENGINE_VERSION
 
+from . import mcp_server
+from . import monitor as mon
 from .store import NATURAL_KEYS, Store
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +41,7 @@ class Settings:
         self.data_dir = data_dir or Path(os.environ.get("FENGSHUI_DATA_DIR") or env.get("FENGSHUI_DATA_DIR")
                                          or ROOT / "data")
         self.diagnostics_dir = diagnostics_dir or ROOT / "diagnostics"
+        self.env = env
 
 
 def _read_env(p: Path) -> dict:
@@ -75,6 +82,23 @@ class ArchiveBody(BaseModel):
     chunks: list[RawChunkIn]
 
 
+class MonitorStartBody(BaseModel):
+    device_id: str
+    interval_min: float
+    duration_h: float
+    push_token: str | None = None
+    push_env: str | None = None          # "sandbox" for Xcode builds, "production" for TestFlight / App Store
+    rules: dict[str, float] = Field(default_factory=dict)
+
+
+class MonitorReadingsBody(BaseModel):
+    session_id: int
+    ts: float
+    trigger: str = "pull"                # push | pull | foreground | background
+    samples: list[dict] = Field(default_factory=list)
+    baselines: dict[str, float] = Field(default_factory=dict)
+
+
 class ComputeBody(BaseModel):
     engine_version: str
     since_id: int = 0
@@ -83,22 +107,52 @@ class ComputeBody(BaseModel):
     tasks: list[str] | None = None
 
 
-def create_app(settings: Settings | None = None, *, bonjour: bool = False, port: int = 8765) -> FastAPI:
+def create_app(settings: Settings | None = None, *, bonjour: bool = False, port: int = 8765,
+               monitor_agent=None, push=None, scheduler: bool = False, clock=time.time,
+               deployment_factory=None) -> FastAPI:
     settings = settings or Settings()
     store = Store(settings.data_dir)
+    monitor = mon.Monitor(store, agent=monitor_agent, push=push, clock=clock)
+    mcp, _ = mcp_server.build(store.db_path)
+    # The owner's scheduled deployment (D-22): this server answers its sessions' custom tools.
+    watcher = deployment_factory(store, push) if deployment_factory else None
+    import socket
+    host = socket.gethostname().split(".")[0]
+    mcp_app = mcp_server.asgi_app(mcp, settings.token, [host, f"{host}.local", socket.gethostname()])
     zc_holder: dict = {}
+
+    async def monitor_loop():
+        n = 0
+        while True:
+            try:
+                await asyncio.to_thread(monitor.tick)
+                if watcher and n % 4 == 0:            # about once a minute
+                    await asyncio.to_thread(watcher.tick)
+            except Exception as e:          # keep the loop alive; the next tick retries
+                print(f"monitor tick failed: {e}")
+            n += 1
+            await asyncio.sleep(15)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if bonjour:
             zc_holder["zc"] = await _advertise(port)
-        yield
+        task = asyncio.create_task(monitor_loop()) if scheduler else None
+        async with mcp.session_manager.run():
+            yield
+        if task:
+            task.cancel()
         if "zc" in zc_holder:
             await zc_holder["zc"].async_close()
 
     app = FastAPI(title="Fengshui server", version=ENGINE_VERSION, lifespan=lifespan)
     app.state.store = store
     app.state.settings = settings
+    app.state.monitor = monitor
+    app.state.deployment = watcher
+    # An ASGI route: the MCP transport handles GET / POST / DELETE itself.
+    from starlette.routing import Route
+    app.router.routes.append(Route("/mcp", endpoint=mcp_app))
 
     def auth(authorization: str = Header(default="")):
         expected = f"Bearer {settings.token}"
@@ -111,7 +165,67 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
 
     @app.get("/health")
     def health():
-        return {"ok": True, "engine_version": ENGINE_VERSION, "server_time": time.time()}
+        return {"ok": True, "engine_version": ENGINE_VERSION, "server_time": time.time(),
+                "monitor": {"push": monitor.push_configured, "agent": monitor.agent is not None},
+                "deployment": watcher is not None}
+
+    # ------------------------------------------------------------ health monitor (D-19)
+
+    @app.post("/monitor/sessions", dependencies=[Depends(auth)])
+    def monitor_start(body: MonitorStartBody):
+        conn = store.connect()
+        try:
+            try:
+                sid = mon.start_session(conn, device_id=body.device_id, interval_s=body.interval_min * 60,
+                                        duration_s=body.duration_h * 3600, now=clock(), push_token=body.push_token,
+                                        push_env=body.push_env, rules=body.rules)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            conn.commit()
+            return mon.public_session(conn, mon.session_row(conn, sid), clock(), push_configured=monitor.push_configured)
+        finally:
+            conn.close()
+
+    @app.get("/monitor/sessions/current", dependencies=[Depends(auth)])
+    def monitor_current(device_id: str):
+        conn = store.connect()
+        try:
+            return {"session": mon.public_session(conn, mon.current_session(conn, device_id), clock(),
+                                                  push_configured=monitor.push_configured)}
+        finally:
+            conn.close()
+
+    @app.post("/monitor/sessions/{session_id}/stop", dependencies=[Depends(auth)])
+    def monitor_stop(session_id: int):
+        conn = store.connect()
+        try:
+            if mon.session_row(conn, session_id) is None:
+                raise HTTPException(404, "no such session")
+            conn.execute("UPDATE monitor_sessions SET status='stopped', stopped_at=? WHERE id=? AND status='active'",
+                         (clock(), session_id))
+            conn.commit()
+            return mon.public_session(conn, mon.session_row(conn, session_id), clock(),
+                                      push_configured=monitor.push_configured)
+        finally:
+            conn.close()
+
+    @app.post("/monitor/readings", dependencies=[Depends(auth)])
+    def monitor_readings(body: MonitorReadingsBody):
+        try:
+            return monitor.receive(body.session_id, ts=body.ts, samples=body.samples, baselines=body.baselines,
+                                   trigger=body.trigger)
+        except KeyError:
+            raise HTTPException(404, "no such session")
+
+    @app.get("/monitor/alerts", dependencies=[Depends(auth)])
+    def monitor_alerts(device_id: str, since_id: int = 0):
+        conn = store.connect()
+        try:
+            ids = [r[0] for r in conn.execute("SELECT id FROM monitor_alerts WHERE device_id=? AND id>? ORDER BY id "
+                                              "LIMIT 200", (device_id, since_id))]
+            return {"alerts": [mon.alert_row(conn, i) for i in ids]}
+        finally:
+            conn.close()
 
     @app.post("/sync", dependencies=[Depends(auth)])
     def sync(body: SyncBody):
@@ -213,5 +327,6 @@ async def _advertise(port: int):
                        addresses=[socket.inet_aton(addr)], port=port,
                        properties={"engine": ENGINE_VERSION, "path": "/"})
     zc = AsyncZeroconf()
-    await zc.async_register_service(info)
+    # A second server, or a restart before the old record expires, gets "… (2)" instead of failing.
+    await zc.async_register_service(info, allow_name_change=True)
     return zc

@@ -34,6 +34,23 @@ final class AppDatabase: Sendable {
             }
             try db.execute(sql: try Schema.sql(version: 1))
         }
+        // Phone-only UI state (DECISIONS D-20): not part of the shared engine schema, never synced.
+        m.registerMigration("v2_inbox_reports") { db in
+            try db.execute(sql: """
+                CREATE TABLE inbox_messages (
+                  id INTEGER PRIMARY KEY, identifier TEXT UNIQUE NOT NULL, ts REAL NOT NULL, kind TEXT NOT NULL,
+                  title TEXT NOT NULL, body TEXT NOT NULL, read_at REAL, link TEXT);
+                CREATE INDEX ix_inbox_ts ON inbox_messages(ts);
+                CREATE TABLE reports (
+                  id INTEGER PRIMARY KEY, created_at REAL NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
+                  purpose TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL, labels_json TEXT NOT NULL,
+                  summary TEXT, question TEXT, ai_log_id INTEGER, file_name TEXT NOT NULL, pages INTEGER NOT NULL,
+                  bytes INTEGER NOT NULL);
+                """)
+        }
+        m.registerMigration("v3_report_answered_by") { db in
+            try db.execute(sql: "ALTER TABLE reports ADD COLUMN answered_by TEXT")
+        }
         return m
     }
 

@@ -32,6 +32,7 @@ A different signing team may not be able to install over the existing app, or to
 2. Add the **Family Controls** capability (Individual) to the `Fengshui` target in `project.yml` (`com.apple.developer.family-controls: true`).
 3. Add the `ScreenTimeMonitor` extension target (`com.chevin.fengshui.ScreenTimeMonitor`, DeviceActivityMonitor) with the App Group `group.com.chevin.fengshui`.
 4. Optional: move the complication from ClockKit to a WidgetKit extension (DECISIONS D-07), and request the time-sensitive notifications entitlement.
+5. **Health monitor push (DECISIONS D-19):** add `aps-environment: development` to the `Fengshui` target's entitlements in `project.yml` and regenerate. In the developer portal, create an **APNs auth key** (.p8). Keep the file outside the repo, for example `~/Keys/AuthKey_XXXX.p8`, and never paste it anywhere. Add `FENGSHUI_APNS_KEY_PATH=~/Keys/AuthKey_XXXX.p8` and `FENGSHUI_APNS_KEY_ID=XXXX` to `server/.env`, which is gitignored. The server reads the Team ID from `apple/Config/Local.xcconfig`. Restart the server: it prints `health monitor: push on`. Reinstall the app, then start a new monitor session so it registers the push token.
 
 ## 5. Spike B: can the DeviceActivity extension write to the App Group?
 

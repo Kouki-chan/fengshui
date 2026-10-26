@@ -69,6 +69,37 @@ final class OnboardingUITests: XCTestCase {
         // Today shows tonight's plan once the post-onboarding engine run finishes.
         XCTAssertTrue(app.staticTexts["Start winding down"].waitForExistence(timeout: 30))
 
+        // Data tab: live tiles from the backfilled samples; a type opens its detail.
+        app.tabBars.buttons["Data"].tap()
+        let hrTile = app.buttons["data.vital.heart_rate"]
+        XCTAssertTrue(hrTile.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["data.watch"].exists)
+        hrTile.tap()
+        XCTAssertTrue(app.navigationBars["Heart rate"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Reports tab: a data-only report (no API key in test mode) opens as a PDF and lands in the inbox.
+        app.tabBars.buttons["Reports"].tap()
+        let create = app.buttons["report.create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitEnabled(create), "default labels should be selected")
+        create.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["report.pdf"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["report.share"].exists)
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["inbox.badge"].waitForExistence(timeout: 5))
+
+        // Bell: the report-ready message; select it and delete the selection.
+        app.buttons["inbox.button"].firstMatch.tap()
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'inbox.row.report-'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        app.buttons["inbox.select"].tap()
+        app.buttons["inbox.selectAll"].tap()
+        app.buttons["inbox.deleteSelected"].tap()
+        XCTAssertTrue(app.staticTexts["No notifications"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertFalse(app.descendants(matching: .any)["inbox.badge"].waitForExistence(timeout: 2))
+
         app.tabBars.buttons["Settings"].tap()
         tapScrolling(app, "settings.debug")
         let hr = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'heart_rate'")).firstMatch
@@ -89,6 +120,7 @@ final class OnboardingUITests: XCTestCase {
 
         // Ask tab: preset questions listed; without a key it explains what to do.
         app.tabBars.buttons["Ask"].tap()
+        XCTAssertTrue(app.navigationBars["Ask FengShui Agent"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["How active was I today?"].waitForExistence(timeout: 5))
         app.buttons["How active was I today?"].tap()
         XCTAssertTrue(app.staticTexts["ask.answer"].waitForExistence(timeout: 5))

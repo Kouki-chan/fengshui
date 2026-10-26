@@ -12,6 +12,7 @@ actor HealthSync {
         var typesTotal: Int
         var rowsWritten: Int
         var currentLabel: String?
+        var failedTypes: [String] = []
         var finished: Bool { typesDone == typesTotal }
     }
 
@@ -22,6 +23,8 @@ actor HealthSync {
     private let clock: Clock
     private let batchSize: Int
     private var exportLabels: Set<String>?
+    /// Types that failed in the last syncAll (shown in onboarding and Diagnostics).
+    private(set) var lastFailures: [String] = []
 
     init(db: AppDatabase, store: HealthStore, clock: Clock = SystemClock(), batchSize: Int = HealthSync.batchSize) {
         self.db = db
@@ -49,15 +52,22 @@ actor HealthSync {
             p.currentLabel = t.label
             progress?(p)
             let snapshot = p
-            total += try await sync(t) { written in
-                var q = snapshot
-                q.rowsWritten += written
-                progress?(q)
+            do {
+                total += try await sync(t) { written in
+                    var q = snapshot
+                    q.rowsWritten += written
+                    progress?(q)
+                }
+            } catch {
+                // One unreadable type (e.g. not authorized) must not stop the others;
+                // its anchor isn't advanced, so the next sync retries it.
+                p.failedTypes.append("\(t.label): \(error.localizedDescription)")
             }
             p.rowsWritten = total
             p.typesDone += 1
             progress?(p)
         }
+        lastFailures = p.failedTypes
         return total
     }
 

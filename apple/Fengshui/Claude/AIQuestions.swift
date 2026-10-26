@@ -114,7 +114,7 @@ struct AIQuestionStore: Sendable {
 /// Runs due scheduled questions and posts each answer as a notification (BGAppRefreshTask).
 struct ScheduledQuestions: Sendable {
     let store: AIQuestionStore
-    let assistant: @Sendable () async -> ClaudeAssistant?
+    let assistant: @Sendable () async -> (any Assistant)?
     let notifications: NotificationCenter
     let timeZone: TimeZone
 

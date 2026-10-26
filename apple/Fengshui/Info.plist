@@ -25,6 +25,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>FengshuiAgentID</key>
+	<string>$(FENGSHUI_AGENT_ID)</string>
+	<key>FengshuiAgentSessionID</key>
+	<string>$(FENGSHUI_AGENT_SESSION_ID)</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -57,6 +61,7 @@
 	<array>
 		<string>fetch</string>
 		<string>processing</string>
+		<string>remote-notification</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

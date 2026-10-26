@@ -7,6 +7,7 @@ struct AskView: View {
     @State private var questions: [AIQuestion] = []
     @State private var draft = ""
     @State private var turns: [(q: String, a: ClaudeAssistant.Answer?)] = []
+    @State private var reportFor: [Int: ReportRecord] = [:]
     @State private var busy = false
 
     var body: some View {
@@ -28,7 +29,7 @@ struct AskView: View {
                 }
                 NavigationLink("Manage questions") { QuestionsEditor(env: env) }
             }
-            ForEach(Array(turns.enumerated()), id: \.offset) { _, t in
+            ForEach(Array(turns.enumerated()), id: \.offset) { i, t in
                 Section {
                     Text(t.q).bold()
                     if let a = t.a {
@@ -36,6 +37,17 @@ struct AskView: View {
                             .accessibilityIdentifier("ask.answer")
                         Text("\(a.toolCalls.count) tool calls · \(a.inputTokens + a.outputTokens) tokens\(a.error.map { " · \($0)" } ?? "")")
                             .font(.caption2).foregroundStyle(.secondary)
+                        if let by = a.answeredBy {
+                            Label("via \(by)", systemImage: by.hasPrefix("Managed") ? "person.badge.shield.checkmark" : "cloud")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("ask.answeredBy")
+                        }
+                        if let r = reportFor[i] ?? a.reportIDs.last.flatMap(env.reports.record) {
+                            NavigationLink { ReportDetailView(env: env, report: r) } label: {
+                                Label("Report saved (\(r.pages) p) · open", systemImage: "doc.richtext").font(.caption)
+                            }
+                            .accessibilityIdentifier("ask.report")
+                        }
                     } else {
                         ProgressView()
                     }
@@ -54,20 +66,23 @@ struct AskView: View {
             .padding()
             .background(.bar)
         }
-        .navigationTitle("Ask")
+        .navigationTitle("Ask FengShui Agent")
         .task { questions = (try? env.questions.all()) ?? [] }
     }
 
     private func ask(_ q: String) async {
-        guard let a = env.assistant() else {
+        guard let a = env.assistant(chat: true) else {
             turns.append((q, ClaudeAssistant.Answer(text: "Add your Anthropic API key in Settings → Claude first.")))
             return
         }
         busy = true
         turns.append((q, nil))
         let ans = await a.ask(q)
-        turns[turns.count - 1].a = ans
+        let i = turns.count - 1
+        turns[i].a = ans
         busy = false
+        // Every question also becomes a report in the Reports tab (unless the answer made one already).
+        if let r = await env.reports.questionReport(question: q, answer: ans) { reportFor[i] = r }
     }
 }
 
@@ -124,6 +139,7 @@ struct ClaudeSettingsView: View {
     let env: AppEnvironment
     @State private var key = ""
     @State private var model = ClaudeAssistant.defaultModel
+    @State private var managed = ManagedAgentConfig()
     static let models = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"]
 
     var body: some View {
@@ -137,12 +153,33 @@ struct ClaudeSettingsView: View {
                     try? env.db.setPreference(ClaudeAssistant.modelKey, model, now: env.clock.now)
                 }
             } footer: { Text("The key is stored only in this iPhone's Keychain.") }
+            Section {
+                Toggle("Use my Managed Agent", isOn: $managed.enabled).accessibilityIdentifier("claude.managed")
+                TextField("Agent ID (agent_…)", text: $managed.agentID)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().font(.callout.monospaced())
+                TextField("Chat session ID (sesn_…)", text: $managed.chatSessionID)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().font(.callout.monospaced())
+                if !managed.environmentID.isEmpty {
+                    LabeledContent("Environment", value: managed.environmentID).font(.caption)
+                }
+                Button("Save agent settings") {
+                    managed.agentID = managed.agentID.trimmingCharacters(in: .whitespaces)
+                    managed.chatSessionID = managed.chatSessionID.trimmingCharacters(in: .whitespaces)
+                    managed.save(env.db)
+                }
+            } header: { Text("Managed Agent") } footer: {
+                Text(managed.isUsable
+                     ? "Questions go to your agent. The Ask chat continues in the session above; report steps get their own sessions. "
+                       + "Fengshui's data tools are added to those sessions only (your agent isn't changed) and run on this iPhone."
+                     : "Off: questions use the Claude API directly with the model above.")
+            }
             Section { NavigationLink("Conversation log") { AILogView(env: env) } }
         }
         .navigationTitle("Claude")
         .task {
             key = env.secrets.get(SecretKey.anthropicKey) ?? ""
             model = env.claudeModel
+            managed = ManagedAgentConfig.load(env.db)
         }
     }
 }

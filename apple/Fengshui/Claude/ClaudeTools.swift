@@ -50,6 +50,18 @@ struct ClaudeTools: Sendable {
                  ["start": date, "end": date], ["start", "end"]),
             tool("get_screen_events", "Screen Time threshold crossings (daily / evening schedules) between two local dates. Empty until Screen Time is enabled.",
                  ["start": date, "end": date], ["start", "end"]),
+            // Reports for health professionals (DECISIONS D-20).
+            tool("list_report_labels", "Which data labels have samples between two local dates, inclusive, grouped (Vitals, Sleep, Activity, Events, Body, Mind, Nutrition, Other) with row counts and units. Call this before choosing labels for a report.",
+                 ["start": date, "end": date], ["start", "end"]),
+            tool("propose_report_labels", "Propose the labels a report should include, with one short reason each. Used when the app asks you to suggest labels; the user reviews them before the report is made.",
+                 ["labels": ["type": "array", "items": ["type": "string"]],
+                  "reasons": ["type": "array", "items": ["type": "string"], "description": "One reason per label, same order"]],
+                 ["labels", "reasons"]),
+            tool("create_report", "Create a shareable PDF report for a health professional: the summary you write, then charts and tables for each label over the period. Returns the report id and page count.",
+                 ["title": ["type": "string"], "start": date, "end": date,
+                  "labels": ["type": "array", "items": ["type": "string"]],
+                  "summary": ["type": "string", "description": "Plain text for a clinician: period, data used, averages and ranges with units, trends, notable values, data gaps. No diagnosis."]],
+                 ["title", "start", "end", "labels", "summary"]),
         ]
     }
 
@@ -69,6 +81,7 @@ struct ClaudeTools: Sendable {
         case "get_sleep_nights": result = try sleepNights(try range(input))
         case "get_visits": result = try visits(try range(input))
         case "get_screen_events": result = try screenEvents(try range(input))
+        case "list_report_labels": result = try reportLabels(try range(input))
         default: throw ToolError(description: "unknown tool \(name)")
         }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys, .withoutEscapingSlashes])
@@ -210,6 +223,16 @@ struct ClaudeTools: Sendable {
             return ["place": (r["name"] as String?) ?? "unnamed place", "kind": (r["kind"] as String?) ?? "unnamed",
                     "arrival": iso(a), "departure": iso(d), "minutes": d.map { Int(($0 - a) / 60) } ?? NSNull()]
         }]
+    }
+
+    private func reportLabels(_ range: (Double, Double)) throws -> Any {
+        let rows = try query.queue.read { db in try ReportData.available(db, range: range) }
+        var groups: [String: [[String: Any]]] = [:]
+        for a in rows {
+            groups[a.group, default: []].append(["label": a.label, "name": a.title, "rows": a.rows, "unit": a.unit ?? "",
+                                                 "first": iso(a.first), "last": iso(a.last)])
+        }
+        return ["groups": groups, "note": "Use these label values in create_report."]
     }
 
     private func screenEvents(_ range: (Double, Double)) throws -> Any {

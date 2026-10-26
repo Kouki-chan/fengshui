@@ -69,11 +69,14 @@ targets:
       path: Fengshui/Info.plist
       properties:
         CFBundleDisplayName: Fengshui
+        # Owner's Managed Agent (DECISIONS D-22): values come from the gitignored Local.xcconfig.
+        FengshuiAgentID: $(FENGSHUI_AGENT_ID)
+        FengshuiAgentSessionID: $(FENGSHUI_AGENT_SESSION_ID)
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [fetch, processing]
+        UIBackgroundModes: [fetch, processing, remote-notification]
         BGTaskSchedulerPermittedIdentifiers:
           - com.chevin.fengshui.refresh
           - com.chevin.fengshui.processing

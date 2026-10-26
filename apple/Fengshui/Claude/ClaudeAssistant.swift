@@ -62,9 +62,34 @@ struct AnthropicHTTP: MessagesTransport {
     }
 }
 
+/// Tools the read-only ClaudeTools can't run: they create things (report PDFs) or hand a
+/// choice back to the UI. Input arrives as JSON so it can cross the actor boundary.
+protocol AssistantActions: Sendable {
+    /// nil = not an action tool (the loop runs it through ClaudeTools).
+    /// `answeredBy`: which backend is asking (shown in reports it creates).
+    func run(name: String, inputJSON: Data, answeredBy: String) async throws -> AssistantActionResult?
+}
+
+struct AssistantActionResult: Sendable {
+    var output: String
+    var reportID: Int64?
+    var proposedLabels: [String]?
+}
+
+/// Either backend (direct Messages API or the owner's Managed Agent, DECISIONS D-22).
+protocol Assistant: Sendable {
+    func ask(_ question: String) async -> ClaudeAssistant.Answer
+}
+
 /// Spec §13 tool loop: max 8 tool rounds, total tool output capped (~50k chars), every
 /// question logged in ai_log (question, tool calls + arguments, response, tokens, errors).
-actor ClaudeAssistant {
+actor ClaudeAssistant: Assistant {
+    struct ToolCall: Sendable, Equatable {
+        var name: String
+        /// Arguments as strings (arrays joined with newlines), e.g. for the question's report scope.
+        var input: [String: String]
+    }
+
     struct Answer: Sendable, Equatable {
         var text: String
         var logID: Int64?
@@ -72,13 +97,20 @@ actor ClaudeAssistant {
         var inputTokens = 0
         var outputTokens = 0
         var toolCalls: [String] = []
+        var calls: [ToolCall] = []
+        var reportIDs: [Int64] = []
+        var proposedLabels: [String]?
+        /// e.g. "Claude API · claude-sonnet-5-5" or "Managed Agent “FengShui Agent” (agent_…) · session sesn_…".
+        var answeredBy: String?
     }
 
     static let systemPrompt = """
         You are Fengshui, a personal assistant that helps one person understand patterns in their own health, \
         activity, sleep and daily context. Use the tools to fetch only the data you need. Base every statement on \
         returned data and say which data you used. If data is missing or thin, say so. Don't diagnose medical \
-        conditions; suggest seeing a professional for anything concerning. Be concise and practical.
+        conditions; suggest seeing a professional for anything concerning. Be concise and practical. \
+        When asked for a report for a health professional: call list_report_labels for the period, choose every label \
+        relevant to the purpose, look at the data you need, write a factual summary for a clinician, then call create_report.
         """
     static let defaultModel = "claude-sonnet-5-5"
     static let smokeTestModel = "claude-haiku-5-5"
@@ -95,9 +127,12 @@ actor ClaudeAssistant {
     private let transport: MessagesTransport
     private let clock: Clock
     private let timeZone: TimeZone
+    private let actions: AssistantActions?
     let model: String
 
-    init(db: AppDatabase, tools: ClaudeTools, transport: MessagesTransport, clock: Clock, timeZone: TimeZone, model: String) {
+    init(db: AppDatabase, tools: ClaudeTools, transport: MessagesTransport, clock: Clock, timeZone: TimeZone, model: String,
+         actions: AssistantActions? = nil) {
+        self.actions = actions
         self.db = db
         self.tools = tools
         self.transport = transport
@@ -105,6 +140,8 @@ actor ClaudeAssistant {
         self.timeZone = timeZone
         self.model = model
     }
+
+    nonisolated var answeredBy: String { "Claude API · \(model)" }
 
     /// The request body for a conversation so far (also inspected by the privacy test).
     func requestBody(_ messages: [[String: Any]]) -> (body: [String: Any], betas: [String]) {
@@ -140,7 +177,7 @@ actor ClaudeAssistant {
             ["type": "text", "text": "Now: \(Self.localDate(now, timeZone)) (\(timeZone.identifier))."],
             ["type": "text", "text": question],
         ]]]
-        var answer = Answer(text: "")
+        var answer = Answer(text: "", answeredBy: answeredBy)
         var calls: [[String: Any]] = []
         var toolChars = 0
         var rounds = 0
@@ -183,7 +220,18 @@ actor ClaudeAssistant {
                         out = "Tool output budget for this question is used up. Answer with the data you already have."
                         isError = true
                     } else {
-                        do { out = try tools.run(name, input) } catch {
+                        do {
+                            let json = try JSONSerialization.data(withJSONObject: input)
+                            if let actions, let r = try await actions.run(name: name, inputJSON: json, answeredBy: answeredBy) {
+                                out = r.output
+                                if let id = r.reportID { answer.reportIDs.append(id) }
+                                if let p = r.proposedLabels { answer.proposedLabels = p }
+                            } else if ["create_report", "propose_report_labels"].contains(name) {
+                                throw ClaudeTools.ToolError(description: "\(name) is not available here")
+                            } else {
+                                out = try tools.run(name, input)
+                            }
+                        } catch {
                             out = "Error: \(error)"
                             isError = true
                         }
@@ -192,6 +240,9 @@ actor ClaudeAssistant {
                         toolChars += out.count
                     }
                     answer.toolCalls.append(name)
+                    answer.calls.append(ToolCall(name: name, input: input.mapValues { v in
+                        (v as? [Any]).map { $0.map { "\($0)" }.joined(separator: "\n") } ?? "\(v)"
+                    }))
                     calls.append(["name": name, "input": input, "output_chars": out.count, "error": isError])
                     var r: [String: Any] = ["type": "tool_result", "tool_use_id": id, "content": out]
                     if isError { r["is_error"] = true }
@@ -209,18 +260,18 @@ actor ClaudeAssistant {
             answer.error = "\(error)"
             answer.text = "Couldn't reach Claude: \(error)"
         }
-        answer.logID = log(question: question, calls: calls, answer: answer, at: now)
+        answer.logID = Self.log(db: db, model: model, question: question, calls: calls, answer: answer, at: now)
         return answer
     }
 
-    private func log(question: String, calls: [[String: Any]], answer: Answer, at: Date) -> Int64? {
+    static func log(db: AppDatabase, model: String, question: String, calls: [[String: Any]], answer: Answer, at: Date) -> Int64? {
         let callsJSON = (try? JSONSerialization.data(withJSONObject: calls, options: [.sortedKeys]))
             .flatMap { String(data: $0, encoding: .utf8) }
         return try? db.writer.write { db -> Int64 in
             try db.execute(sql: """
                 INSERT INTO ai_log (ts, question, model, tool_calls_json, response_text, input_tokens, output_tokens, error)
                 VALUES (?,?,?,?,?,?,?,?)
-                """, arguments: [at.timeIntervalSince1970, question, self.model, callsJSON, answer.text,
+                """, arguments: [at.timeIntervalSince1970, question, model, callsJSON, answer.text,
                                  answer.inputTokens, answer.outputTokens, answer.error])
             return db.lastInsertedRowID
         }
