@@ -75,9 +75,14 @@ struct AssistantActionResult: Sendable {
     var proposedLabels: [String]?
 }
 
+/// Either backend (direct Messages API or the owner's Managed Agent, DECISIONS D-22).
+protocol Assistant: Sendable {
+    func ask(_ question: String) async -> ClaudeAssistant.Answer
+}
+
 /// Spec §13 tool loop: max 8 tool rounds, total tool output capped (~50k chars), every
 /// question logged in ai_log (question, tool calls + arguments, response, tokens, errors).
-actor ClaudeAssistant {
+actor ClaudeAssistant: Assistant {
     struct ToolCall: Sendable, Equatable {
         var name: String
         /// Arguments as strings (arrays joined with newlines), e.g. for the question's report scope.
@@ -250,18 +255,18 @@ actor ClaudeAssistant {
             answer.error = "\(error)"
             answer.text = "Couldn't reach Claude: \(error)"
         }
-        answer.logID = log(question: question, calls: calls, answer: answer, at: now)
+        answer.logID = Self.log(db: db, model: model, question: question, calls: calls, answer: answer, at: now)
         return answer
     }
 
-    private func log(question: String, calls: [[String: Any]], answer: Answer, at: Date) -> Int64? {
+    static func log(db: AppDatabase, model: String, question: String, calls: [[String: Any]], answer: Answer, at: Date) -> Int64? {
         let callsJSON = (try? JSONSerialization.data(withJSONObject: calls, options: [.sortedKeys]))
             .flatMap { String(data: $0, encoding: .utf8) }
         return try? db.writer.write { db -> Int64 in
             try db.execute(sql: """
                 INSERT INTO ai_log (ts, question, model, tool_calls_json, response_text, input_tokens, output_tokens, error)
                 VALUES (?,?,?,?,?,?,?,?)
-                """, arguments: [at.timeIntervalSince1970, question, self.model, callsJSON, answer.text,
+                """, arguments: [at.timeIntervalSince1970, question, model, callsJSON, answer.text,
                                  answer.inputTokens, answer.outputTokens, answer.error])
             return db.lastInsertedRowID
         }

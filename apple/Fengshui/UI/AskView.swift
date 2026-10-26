@@ -66,7 +66,7 @@ struct AskView: View {
     }
 
     private func ask(_ q: String) async {
-        guard let a = env.assistant() else {
+        guard let a = env.assistant(chat: true) else {
             turns.append((q, ClaudeAssistant.Answer(text: "Add your Anthropic API key in Settings → Claude first.")))
             return
         }
@@ -134,6 +134,7 @@ struct ClaudeSettingsView: View {
     let env: AppEnvironment
     @State private var key = ""
     @State private var model = ClaudeAssistant.defaultModel
+    @State private var managed = ManagedAgentConfig()
     static let models = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"]
 
     var body: some View {
@@ -147,12 +148,33 @@ struct ClaudeSettingsView: View {
                     try? env.db.setPreference(ClaudeAssistant.modelKey, model, now: env.clock.now)
                 }
             } footer: { Text("The key is stored only in this iPhone's Keychain.") }
+            Section {
+                Toggle("Use my Managed Agent", isOn: $managed.enabled).accessibilityIdentifier("claude.managed")
+                TextField("Agent ID (agent_…)", text: $managed.agentID)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().font(.callout.monospaced())
+                TextField("Chat session ID (sesn_…)", text: $managed.chatSessionID)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().font(.callout.monospaced())
+                if !managed.environmentID.isEmpty {
+                    LabeledContent("Environment", value: managed.environmentID).font(.caption)
+                }
+                Button("Save agent settings") {
+                    managed.agentID = managed.agentID.trimmingCharacters(in: .whitespaces)
+                    managed.chatSessionID = managed.chatSessionID.trimmingCharacters(in: .whitespaces)
+                    managed.save(env.db)
+                }
+            } header: { Text("Managed Agent") } footer: {
+                Text(managed.isUsable
+                     ? "Questions go to your agent. The Ask chat continues in the session above; report steps get their own sessions. "
+                       + "Fengshui's data tools are added to those sessions only (your agent isn't changed) and run on this iPhone."
+                     : "Off: questions use the Claude API directly with the model above.")
+            }
             Section { NavigationLink("Conversation log") { AILogView(env: env) } }
         }
         .navigationTitle("Claude")
         .task {
             key = env.secrets.get(SecretKey.anthropicKey) ?? ""
             model = env.claudeModel
+            managed = ManagedAgentConfig.load(env.db)
         }
     }
 }

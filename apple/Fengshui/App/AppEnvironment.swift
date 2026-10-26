@@ -118,9 +118,26 @@ final class AppEnvironment: Sendable {
 
     func syncLiveTypes() async { await Self.syncLiveTypes(healthSync, log: log) }
 
-    /// nil until an API key is entered in Settings (Keychain). Report tools are always available;
-    /// the Report tab passes its own actions to pin the user's filter.
-    func assistant(transport: MessagesTransport? = nil, actions: AssistantActions? = nil) -> ClaudeAssistant? {
+    /// The configured backend (DECISIONS D-22): the owner's Managed Agent when set up in Settings →
+    /// Claude, else the direct Messages API. `chat` = the Ask tab's ongoing conversation; other
+    /// callers (Report tab steps, scheduled questions) get a fresh session on the managed backend.
+    func assistant(actions: AssistantActions? = nil, chat: Bool = false,
+                   managedTransport: ManagedTransport? = nil) -> (any Assistant)? {
+        let cfg = ManagedAgentConfig.load(db)
+        guard cfg.isUsable else { return claudeAssistant(actions: actions) }
+        let t: ManagedTransport
+        if let managedTransport { t = managedTransport } else {
+            guard let key = secrets.get(SecretKey.anthropicKey), !key.isEmpty else { return nil }
+            t = ManagedAgentsHTTP(apiKey: key)
+        }
+        guard let tools = try? ClaudeTools(dbPath: db.path, timeZone: timeZone) else { return nil }
+        return ManagedAssistant(db: db, tools: tools, actions: actions ?? ReportActions(store: reports), transport: t,
+                                clock: clock, timeZone: timeZone, log: log, config: cfg, chat: chat)
+    }
+
+    /// The direct Messages API backend (nil until an API key is entered in Settings, Keychain).
+    /// Report tools are always available; the Report tab passes its own actions to pin the user's filter.
+    func claudeAssistant(transport: MessagesTransport? = nil, actions: AssistantActions? = nil) -> ClaudeAssistant? {
         let t: MessagesTransport
         if let transport { t = transport } else {
             guard let key = secrets.get(SecretKey.anthropicKey), !key.isEmpty else { return nil }
