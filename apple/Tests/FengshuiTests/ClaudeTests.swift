@@ -182,7 +182,10 @@ final class ClaudeTests: XCTestCase {
         XCTAssertNil(body["temperature"])
         XCTAssertEqual(body["fallbacks"] as? String, "default")
         XCTAssertEqual(mock.betas[0], [ClaudeAssistant.fallbackBeta])
-        XCTAssertEqual((body["tools"] as! [Any]).count, 7)
+        // 7 data tools (spec §13) + 3 report tools (DECISIONS D-20).
+        XCTAssertEqual((body["tools"] as! [[String: Any]]).compactMap { $0["name"] as? String }.suffix(3),
+                       ["list_report_labels", "propose_report_labels", "create_report"])
+        XCTAssertEqual((body["tools"] as! [Any]).count, 10)
         XCTAssertTrue(((body["system"] as! [[String: Any]])[0]["text"] as! String).hasPrefix("You are Fengshui"))
         // Haiku: no server-side fallback.
         let mock2 = MockTransport()
