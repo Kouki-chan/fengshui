@@ -4,6 +4,7 @@ Endpoints: GET /health · POST /sync · POST /raw/archive · GET /raw · POST /c
 POST /diagnostics (+ GET /diagnostics/latest for reading uploads during the device test).
 Health monitor (DECISIONS D-19): POST /monitor/sessions · GET /monitor/sessions/current ·
 POST /monitor/sessions/{id}/stop · POST /monitor/readings · GET /monitor/alerts.
+MCP (DECISIONS D-21): POST /mcp, the read-only data tools for any MCP client.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from pydantic import BaseModel, Field
 import fengshui_engine
 from fengshui_engine import ENGINE_VERSION
 
+from . import mcp_server
 from . import monitor as mon
 from .store import NATURAL_KEYS, Store
 
@@ -110,6 +112,10 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     settings = settings or Settings()
     store = Store(settings.data_dir)
     monitor = mon.Monitor(store, agent=monitor_agent, push=push, clock=clock)
+    mcp, _ = mcp_server.build(store.db_path)
+    import socket
+    host = socket.gethostname().split(".")[0]
+    mcp_app = mcp_server.asgi_app(mcp, settings.token, [host, f"{host}.local", socket.gethostname()])
     zc_holder: dict = {}
 
     async def monitor_loop():
@@ -125,7 +131,8 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
         if bonjour:
             zc_holder["zc"] = await _advertise(port)
         task = asyncio.create_task(monitor_loop()) if scheduler else None
-        yield
+        async with mcp.session_manager.run():
+            yield
         if task:
             task.cancel()
         if "zc" in zc_holder:
@@ -135,6 +142,9 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     app.state.store = store
     app.state.settings = settings
     app.state.monitor = monitor
+    # An ASGI route: the MCP transport handles GET / POST / DELETE itself.
+    from starlette.routing import Route
+    app.router.routes.append(Route("/mcp", endpoint=mcp_app))
 
     def auth(authorization: str = Header(default="")):
         expected = f"Bearer {settings.token}"
