@@ -17,12 +17,6 @@ Spec: [`docs/SPEC.md`](docs/SPEC.md) · Plan: [`docs/PLAN.md`](docs/PLAN.md) · 
 | `scripts/` | bootstrap, tests, server, importer, device install, checks |
 | `fixtures/` | synthetic test data only |
 
-## Setup (once)
-
-```bash
-cd ~/Developer/fengshui
-scripts/bootstrap.sh          # repo-local Python 3.13 + XcodeGen in .tools/, .venv, Python-Apple-support, Xcode project
-```
 
 Nothing is installed system-wide. Device builds need your Team ID in `apple/Config/Local.xcconfig` (gitignored):
 
