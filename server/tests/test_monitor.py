@@ -278,3 +278,61 @@ def test_apns_error_reason_and_unconfigured(tmp_path):
     xc = tmp_path / "Local.xcconfig"
     xc.write_text("// local\nDEVELOPMENT_TEAM = ABCDE12345\n")
     assert team_id_from_xcconfig(xc) == "ABCDE12345"
+
+
+# ---------------------------------------------------------------- Managed Agent backend
+
+class FakeManaged:
+    """Fake client.beta: one scripted SSE stream per session; records sends."""
+
+    def __init__(self, script):
+        self.script, self.sent, self.created = script, [], []
+        agent = SimpleNamespace(tools=[SimpleNamespace(model_dump=lambda exclude_none=True: {"type": "agent_toolset_20260401"}),
+                                       SimpleNamespace(model_dump=lambda exclude_none=True: {"type": "custom", "name": "get_flags",
+                                                                                             "input_schema": {}})])
+        sessions = SimpleNamespace(
+            retrieve=lambda sid: SimpleNamespace(environment_id="env_123"),
+            create=lambda **kw: (self.created.append(kw), SimpleNamespace(id=f"sesn_{len(self.created)}"))[1],
+            events=SimpleNamespace(stream=lambda sid, timeout=None: iter(self.script),
+                                   send=lambda sid, events: self.sent.append((sid, events))))
+        self.beta = SimpleNamespace(agents=SimpleNamespace(retrieve=lambda aid: agent), sessions=sessions)
+
+
+def ev(type_, **kw):
+    return SimpleNamespace(type=type_, **kw)
+
+
+def test_managed_agent_runs_tools_locally_and_returns_decision(env):
+    from fengshui_server.monitor_agent import ManagedMonitorAgent
+    fake = FakeManaged([
+        ev("session.status_running"),
+        ev("agent.custom_tool_use", id="sevt_1", name="get_recent_readings", input={"label": "heart_rate", "minutes": 30}),
+        ev("agent.custom_tool_use", id="sevt_2", name="send_alert",
+           input={"severity": "warning", "title": "High heart rate at rest", "body": "Above 120 for 11 min."}),
+    ])
+    agent = ManagedMonitorAgent(fake, "agent_x", reference_session_id="sesn_ref")
+    c, _ = env.make(agent=agent)
+    sid = start(c)["id"]
+    [a] = send(c, sid, [hr(T0 + i * 60, 128) for i in range(12)], ts=T0 + 720)["alerts"]
+    assert a["title"] == "High heart rate at rest" and a["decided_by"] == "agent"
+    [created] = fake.created
+    assert created["environment_id"] == "env_123"                          # found via the reference session
+    assert created["agent"]["type"] == "agent_with_overrides" and created["agent"]["id"] == "agent_x"
+    names = [t.get("name") for t in created["agent"]["tools"]]
+    assert names[0] is None and names.count("get_flags") == 1              # agent's toolset kept; ours replace dupes
+    assert {"get_flags", "get_recent_readings", "get_baselines", "send_alert", "no_alert"} <= set(names)
+    first = fake.sent[0][1][0]
+    assert first["type"] == "user.message" and "send_alert or no_alert" in first["content"][0]["text"]
+    result = fake.sent[1][1][0]
+    assert result["type"] == "user.custom_tool_result" and result["custom_tool_use_id"] == "sevt_1"
+    assert len(json.loads(result["content"][0]["text"])["readings"]) == 12
+    assert fake.sent[2][1][0]["custom_tool_use_id"] == "sevt_2"           # the decision is acknowledged too
+
+
+def test_managed_agent_ending_without_decision_falls_back_to_rules(env):
+    from fengshui_server.monitor_agent import ManagedMonitorAgent
+    fake = FakeManaged([ev("agent.message"), ev("session.status_idle", stop_reason=SimpleNamespace(type="end_turn"))])
+    c, _ = env.make(agent=ManagedMonitorAgent(fake, "agent_x", environment_id="env_1"))
+    sid = start(c)["id"]
+    [a] = send(c, sid, [hr(T0 + i * 60, 128) for i in range(12)], ts=T0 + 720)["alerts"]
+    assert a["decided_by"].startswith("rules (agent error")

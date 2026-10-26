@@ -6,7 +6,8 @@ import uvicorn
 
 from .apns import APNs
 from .app import ROOT, Settings, create_app
-from .monitor_agent import MonitorAgent
+from .deployment import DeploymentWatcher
+from .monitor_agent import ManagedMonitorAgent, MonitorAgent, api_key
 
 
 def main() -> None:
@@ -17,10 +18,20 @@ def main() -> None:
     a = ap.parse_args()
     settings = Settings()
     push = APNs.from_settings(settings.env, ROOT.parent / "apple" / "Config" / "Local.xcconfig")
-    agent = MonitorAgent.from_environment()
+    # Prefer the owner's Managed Agent when configured (FENGSHUI_AGENT_ID in server/.env), else the API.
+    agent = ManagedMonitorAgent.from_environment(settings.env) or MonitorAgent.from_environment()
     print(f"health monitor: push {'on' if push else 'off (pull mode; needs the paid account)'}, "
           f"agent {'on (' + agent.model + ')' if agent else 'off (no Anthropic key; rule-only alerts)'}")
-    app = create_app(settings, bonjour=not a.no_bonjour, port=a.port, monitor_agent=agent, push=push, scheduler=True)
+    deployment = settings.env.get("FENGSHUI_DEPLOYMENT_ID")
+    key = api_key()
+    factory = None
+    if deployment and key:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        factory = lambda store, push: DeploymentWatcher(client, deployment, store, push=push)  # noqa: E731
+    print(f"deployment: {'serving ' + deployment if factory else 'off (needs FENGSHUI_DEPLOYMENT_ID and a key)'}")
+    app = create_app(settings, bonjour=not a.no_bonjour, port=a.port, monitor_agent=agent, push=push, scheduler=True,
+                     deployment_factory=factory)
     uvicorn.run(app, host=a.host, port=a.port, log_level="info")
 
 

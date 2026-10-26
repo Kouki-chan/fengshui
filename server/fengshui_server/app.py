@@ -108,22 +108,29 @@ class ComputeBody(BaseModel):
 
 
 def create_app(settings: Settings | None = None, *, bonjour: bool = False, port: int = 8765,
-               monitor_agent=None, push=None, scheduler: bool = False, clock=time.time) -> FastAPI:
+               monitor_agent=None, push=None, scheduler: bool = False, clock=time.time,
+               deployment_factory=None) -> FastAPI:
     settings = settings or Settings()
     store = Store(settings.data_dir)
     monitor = mon.Monitor(store, agent=monitor_agent, push=push, clock=clock)
     mcp, _ = mcp_server.build(store.db_path)
+    # The owner's scheduled deployment (D-22): this server answers its sessions' custom tools.
+    watcher = deployment_factory(store, push) if deployment_factory else None
     import socket
     host = socket.gethostname().split(".")[0]
     mcp_app = mcp_server.asgi_app(mcp, settings.token, [host, f"{host}.local", socket.gethostname()])
     zc_holder: dict = {}
 
     async def monitor_loop():
+        n = 0
         while True:
             try:
                 await asyncio.to_thread(monitor.tick)
+                if watcher and n % 4 == 0:            # about once a minute
+                    await asyncio.to_thread(watcher.tick)
             except Exception as e:          # keep the loop alive; the next tick retries
                 print(f"monitor tick failed: {e}")
+            n += 1
             await asyncio.sleep(15)
 
     @asynccontextmanager
@@ -142,6 +149,7 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     app.state.store = store
     app.state.settings = settings
     app.state.monitor = monitor
+    app.state.deployment = watcher
     # An ASGI route: the MCP transport handles GET / POST / DELETE itself.
     from starlette.routing import Route
     app.router.routes.append(Route("/mcp", endpoint=mcp_app))
@@ -158,7 +166,8 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     @app.get("/health")
     def health():
         return {"ok": True, "engine_version": ENGINE_VERSION, "server_time": time.time(),
-                "monitor": {"push": monitor.push_configured, "agent": monitor.agent is not None}}
+                "monitor": {"push": monitor.push_configured, "agent": monitor.agent is not None},
+                "deployment": watcher is not None}
 
     # ------------------------------------------------------------ health monitor (D-19)
 

@@ -136,3 +136,99 @@ class MonitorAgent:
             messages.append({"role": "assistant", "content": resp.content})
             messages.append({"role": "user", "content": results})
         raise RuntimeError("agent finished without send_alert / no_alert")
+
+
+# ---------------------------------------------------------------- Managed Agent backend (DECISIONS D-22)
+
+CUSTOM_TOOLS = [{"type": "custom", "name": t["name"], "description": t["description"], "input_schema": t["input_schema"]}
+                for t in TOOLS]
+OUR_TOOL_NAMES = {t["name"] for t in TOOLS}
+
+
+def _dump(o) -> dict:
+    return o.model_dump(exclude_none=True) if hasattr(o, "model_dump") else dict(o)
+
+
+class ManagedMonitorAgent:
+    """Same decision as MonitorAgent, run on the owner's Managed Agent: one short session per
+    flagged check, created from the agent with the monitor tools added session-locally (the
+    agent resource itself is never changed). The tools run here, on the Mac."""
+
+    def __init__(self, client, agent_id: str, *, environment_id: str | None = None,
+                 reference_session_id: str | None = None):
+        self.client, self.agent_id = client, agent_id
+        self.environment_id, self.reference_session_id = environment_id, reference_session_id
+        self.model = f"managed agent {agent_id}"
+        self.last_calls: list[dict] = []
+        self.last_session_id: str | None = None
+        self._tools: list[dict] | None = None
+        self._helper = MonitorAgent(client)          # tool implementations
+
+    @classmethod
+    def from_environment(cls, env: dict) -> "ManagedMonitorAgent | None":
+        agent_id = env.get("FENGSHUI_AGENT_ID") or os.environ.get("FENGSHUI_AGENT_ID")
+        key = api_key()
+        if not (agent_id and key):
+            return None
+        import anthropic
+        return cls(anthropic.Anthropic(api_key=key), agent_id,
+                   environment_id=env.get("FENGSHUI_AGENT_ENVIRONMENT_ID"),
+                   reference_session_id=env.get("FENGSHUI_AGENT_SESSION_ID"))
+
+    def _environment(self) -> str:
+        if not self.environment_id:
+            if not self.reference_session_id:
+                raise RuntimeError("set FENGSHUI_AGENT_ENVIRONMENT_ID or FENGSHUI_AGENT_SESSION_ID in server/.env")
+            self.environment_id = self.client.beta.sessions.retrieve(self.reference_session_id).environment_id
+        return self.environment_id
+
+    def _session_tools(self) -> list[dict]:
+        if self._tools is None:
+            agent = self.client.beta.agents.retrieve(self.agent_id)
+            # Keep the agent's own tools, minus any with our names, then add ours.
+            own = [_dump(t) for t in (agent.tools or [])]
+            self._tools = [t for t in own if t.get("name") not in OUR_TOOL_NAMES] + CUSTOM_TOOLS
+        return self._tools
+
+    def decide(self, conn, session: dict, flags: list[Flag], now: float) -> dict:
+        samples, baselines = readings_window(conn, session["id"], now - 12 * 3600)
+        ctx = {"flags": flags, "session": session, "samples": samples, "baselines": baselines, "now": now}
+        s = self.client.beta.sessions.create(
+            agent={"type": "agent_with_overrides", "id": self.agent_id, "tools": self._session_tools()},
+            environment_id=self._environment(), title=f"Fengshui monitor check {_iso(now)}")
+        self.last_session_id = s.id
+        self.last_calls = []
+        prompt = (f"{SYSTEM}\n\nNow: {_iso(now)}. A rule flagged {len(flags)} finding(s) in this check. Use get_flags, "
+                  "get_recent_readings and get_baselines, then call send_alert or no_alert.")
+        stream = self.client.beta.sessions.events.stream(s.id, timeout=120)
+        self.client.beta.sessions.events.send(s.id, events=[{"type": "user.message",
+                                                             "content": [{"type": "text", "text": prompt}]}])
+        rounds = 0
+        for ev in stream:
+            if ev.type == "agent.custom_tool_use":
+                rounds += 1
+                name, args = ev.name, dict(ev.input or {})
+                self.last_calls.append({"name": name, "input": args})
+                if name in ("send_alert", "no_alert"):
+                    self._reply(s.id, ev.id, "Recorded.", False)
+                    if name == "send_alert":
+                        return {"notify": True, "severity": args["severity"], "title": args["title"], "body": args["body"]}
+                    return {"notify": False, "reason": args.get("reason", "")}
+                if rounds > MAX_ROUNDS * 2:
+                    self._reply(s.id, ev.id, "Tool budget reached: call send_alert or no_alert now.", True)
+                    continue
+                try:
+                    out, err = self._helper._run_tool(name, args, ctx), False
+                except Exception as e:
+                    out, err = f"Error: {e}", True
+                self._reply(s.id, ev.id, out, err)
+            elif ev.type == "session.status_terminated":
+                break
+            elif ev.type == "session.status_idle" and getattr(ev.stop_reason, "type", "") != "requires_action":
+                break
+        raise RuntimeError("managed agent finished without send_alert / no_alert")
+
+    def _reply(self, session_id: str, event_id: str, text: str, is_error: bool) -> None:
+        self.client.beta.sessions.events.send(session_id, events=[{
+            "type": "user.custom_tool_result", "custom_tool_use_id": event_id,
+            "content": [{"type": "text", "text": text}], "is_error": is_error}])
