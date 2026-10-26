@@ -47,9 +47,6 @@ Find it in Xcode → Settings → Accounts → your Apple Account → Personal T
 | Regenerate the HealthKit catalog (after an Xcode update) | `.venv/bin/python scripts/gen_hk_catalog.py` |
 | Regenerate synthetic scenarios | `.venv/bin/python engine/tests/synth.py` |
 
-## Free developer account
-
-Signed with a Personal Team, the app stops launching after about 7 days. Settings shows "Signing expires in N days", and a notification reminds you a day before. To renew, run the app from Xcode again; your data is kept. Screen Time needs the paid program and is off (`FENGSHUI_PAID_ACCOUNT`). To switch later, see [`docs/PAID_ACCOUNT_SWITCH.md`](docs/PAID_ACCOUNT_SWITCH.md).
 
 ## Privacy
 
