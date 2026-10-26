@@ -7,6 +7,7 @@ struct AskView: View {
     @State private var questions: [AIQuestion] = []
     @State private var draft = ""
     @State private var turns: [(q: String, a: ClaudeAssistant.Answer?)] = []
+    @State private var reportFor: [Int: ReportRecord] = [:]
     @State private var busy = false
 
     var body: some View {
@@ -28,7 +29,7 @@ struct AskView: View {
                 }
                 NavigationLink("Manage questions") { QuestionsEditor(env: env) }
             }
-            ForEach(Array(turns.enumerated()), id: \.offset) { _, t in
+            ForEach(Array(turns.enumerated()), id: \.offset) { i, t in
                 Section {
                     Text(t.q).bold()
                     if let a = t.a {
@@ -36,6 +37,12 @@ struct AskView: View {
                             .accessibilityIdentifier("ask.answer")
                         Text("\(a.toolCalls.count) tool calls · \(a.inputTokens + a.outputTokens) tokens\(a.error.map { " · \($0)" } ?? "")")
                             .font(.caption2).foregroundStyle(.secondary)
+                        if let r = reportFor[i] ?? a.reportIDs.last.flatMap(env.reports.record) {
+                            NavigationLink { ReportDetailView(env: env, report: r) } label: {
+                                Label("Report saved (\(r.pages) p) · open", systemImage: "doc.richtext").font(.caption)
+                            }
+                            .accessibilityIdentifier("ask.report")
+                        }
                     } else {
                         ProgressView()
                     }
@@ -54,7 +61,7 @@ struct AskView: View {
             .padding()
             .background(.bar)
         }
-        .navigationTitle("Ask")
+        .navigationTitle("Ask FengShui Agent")
         .task { questions = (try? env.questions.all()) ?? [] }
     }
 
@@ -66,8 +73,11 @@ struct AskView: View {
         busy = true
         turns.append((q, nil))
         let ans = await a.ask(q)
-        turns[turns.count - 1].a = ans
+        let i = turns.count - 1
+        turns[i].a = ans
         busy = false
+        // Every question also becomes a report in the Reports tab (unless the answer made one already).
+        if let r = await env.reports.questionReport(question: q, answer: ans) { reportFor[i] = r }
     }
 }
 

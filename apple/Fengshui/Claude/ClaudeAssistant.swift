@@ -62,9 +62,28 @@ struct AnthropicHTTP: MessagesTransport {
     }
 }
 
+/// Tools the read-only ClaudeTools can't run: they create things (report PDFs) or hand a
+/// choice back to the UI. Input arrives as JSON so it can cross the actor boundary.
+protocol AssistantActions: Sendable {
+    /// nil = not an action tool (the loop runs it through ClaudeTools).
+    func run(name: String, inputJSON: Data) async throws -> AssistantActionResult?
+}
+
+struct AssistantActionResult: Sendable {
+    var output: String
+    var reportID: Int64?
+    var proposedLabels: [String]?
+}
+
 /// Spec §13 tool loop: max 8 tool rounds, total tool output capped (~50k chars), every
 /// question logged in ai_log (question, tool calls + arguments, response, tokens, errors).
 actor ClaudeAssistant {
+    struct ToolCall: Sendable, Equatable {
+        var name: String
+        /// Arguments as strings (arrays joined with newlines), e.g. for the question's report scope.
+        var input: [String: String]
+    }
+
     struct Answer: Sendable, Equatable {
         var text: String
         var logID: Int64?
@@ -72,13 +91,18 @@ actor ClaudeAssistant {
         var inputTokens = 0
         var outputTokens = 0
         var toolCalls: [String] = []
+        var calls: [ToolCall] = []
+        var reportIDs: [Int64] = []
+        var proposedLabels: [String]?
     }
 
     static let systemPrompt = """
         You are Fengshui, a personal assistant that helps one person understand patterns in their own health, \
         activity, sleep and daily context. Use the tools to fetch only the data you need. Base every statement on \
         returned data and say which data you used. If data is missing or thin, say so. Don't diagnose medical \
-        conditions; suggest seeing a professional for anything concerning. Be concise and practical.
+        conditions; suggest seeing a professional for anything concerning. Be concise and practical. \
+        When asked for a report for a health professional: call list_report_labels for the period, choose every label \
+        relevant to the purpose, look at the data you need, write a factual summary for a clinician, then call create_report.
         """
     static let defaultModel = "claude-sonnet-5-5"
     static let smokeTestModel = "claude-haiku-5-5"
@@ -95,9 +119,12 @@ actor ClaudeAssistant {
     private let transport: MessagesTransport
     private let clock: Clock
     private let timeZone: TimeZone
+    private let actions: AssistantActions?
     let model: String
 
-    init(db: AppDatabase, tools: ClaudeTools, transport: MessagesTransport, clock: Clock, timeZone: TimeZone, model: String) {
+    init(db: AppDatabase, tools: ClaudeTools, transport: MessagesTransport, clock: Clock, timeZone: TimeZone, model: String,
+         actions: AssistantActions? = nil) {
+        self.actions = actions
         self.db = db
         self.tools = tools
         self.transport = transport
@@ -183,7 +210,18 @@ actor ClaudeAssistant {
                         out = "Tool output budget for this question is used up. Answer with the data you already have."
                         isError = true
                     } else {
-                        do { out = try tools.run(name, input) } catch {
+                        do {
+                            let json = try JSONSerialization.data(withJSONObject: input)
+                            if let actions, let r = try await actions.run(name: name, inputJSON: json) {
+                                out = r.output
+                                if let id = r.reportID { answer.reportIDs.append(id) }
+                                if let p = r.proposedLabels { answer.proposedLabels = p }
+                            } else if ["create_report", "propose_report_labels"].contains(name) {
+                                throw ClaudeTools.ToolError(description: "\(name) is not available here")
+                            } else {
+                                out = try tools.run(name, input)
+                            }
+                        } catch {
                             out = "Error: \(error)"
                             isError = true
                         }
@@ -192,6 +230,9 @@ actor ClaudeAssistant {
                         toolChars += out.count
                     }
                     answer.toolCalls.append(name)
+                    answer.calls.append(ToolCall(name: name, input: input.mapValues { v in
+                        (v as? [Any]).map { $0.map { "\($0)" }.joined(separator: "\n") } ?? "\(v)"
+                    }))
                     calls.append(["name": name, "input": input, "output_chars": out.count, "error": isError])
                     var r: [String: Any] = ["type": "tool_result", "tool_use_id": id, "content": out]
                     if isError { r["is_error"] = true }
