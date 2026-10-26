@@ -59,16 +59,11 @@ struct ManagedAgentsHTTP: ManagedTransport {
         return AsyncThrowingStream { cont in
             let task = Task {
                 do {
-                    var data = ""
+                    var parser = SSEParser()
                     for try await line in bytes.lines {
-                        if line.hasPrefix("data:") {
-                            data += line.dropFirst(5).trimmingCharacters(in: .whitespaces)
-                        } else if line.isEmpty, !data.isEmpty {
-                            cont.yield(Data(data.utf8))
-                            data = ""
-                        }
+                        if let event = parser.feed(line) { cont.yield(event) }
                     }
-                    if !data.isEmpty { cont.yield(Data(data.utf8)) }
+                    if let event = parser.flush() { cont.yield(event) }
                     cont.finish()
                 } catch {
                     cont.finish(throwing: error)
@@ -76,6 +71,30 @@ struct ManagedAgentsHTTP: ManagedTransport {
             }
             cont.onTermination = { _ in task.cancel() }
         }
+    }
+}
+
+/// Server-sent events → one JSON payload per event. `AsyncBytes.lines` drops the blank lines
+/// that end SSE events, so an event is emitted as soon as its `data:` lines form valid JSON
+/// (Anthropic sends each event as one JSON line), or when the next `event:` line starts.
+struct SSEParser {
+    private var data = ""
+
+    mutating func feed(_ line: String) -> Data? {
+        if line.hasPrefix("data:") {
+            data += line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+            if (try? JSONSerialization.jsonObject(with: Data(data.utf8))) != nil { return flush() }
+            return nil
+        }
+        // A blank line (if it arrives) or the next event's header ends the current one.
+        if line.isEmpty || line.hasPrefix("event:") { return flush() }
+        return nil                                    // comments (":"), id:, retry:
+    }
+
+    mutating func flush() -> Data? {
+        guard !data.isEmpty else { return nil }
+        defer { data = "" }
+        return Data(data.utf8)
     }
 }
 
@@ -225,16 +244,30 @@ actor ManagedAssistant: Assistant {
         let sid = chat ? try await chatSession() : try await newSession(title: "Fengshui: \(question.prefix(60))")
         // Stream first, then send: events before the stream opens would arrive as one late batch.
         let stream = try await transport.events(sid)
-        _ = try await json("POST", "v1/sessions/\(sid)/events", ["events": [[
+        let message: [String: Any] = ["events": [[
             "type": "user.message",
             "content": [["type": "text", "text": "Now: \(ClaudeAssistant.localDate(now, timeZone)) (\(timeZone.identifier))."],
                         ["type": "text", "text": question]],
-        ]]])
+        ]]]
+        do {
+            _ = try await json("POST", "v1/sessions/\(sid)/events", message)
+        } catch let e as AnthropicHTTP.APIError where e.status == 400 && e.message.contains("waiting on responses") {
+            // An earlier turn is stuck on a request this app never answered (it was closed, or
+            // lost the stream). Stop that turn, then ask again.
+            log.add("managed_recover", "interrupting a stuck turn")
+            _ = try await json("POST", "v1/sessions/\(sid)/events", ["events": [["type": "user.interrupt"]]])
+            try await Task.sleep(for: .seconds(1))
+            _ = try await json("POST", "v1/sessions/\(sid)/events", message)
+        }
         var texts: [String] = []
         var toolChars = 0
+        // Ignore what belongs to an earlier turn (e.g. the interrupt's idle) until our message is echoed.
+        var started = false
         for try await data in stream {
             guard let ev = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let type = ev["type"] as? String
             else { continue }
+            if type == "user.message" { started = true; continue }
+            if !started { continue }
             switch type {
             case "agent.message":
                 let t = (ev["content"] as? [[String: Any]] ?? []).compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }

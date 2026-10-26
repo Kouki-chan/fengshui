@@ -10,13 +10,22 @@ final class MockManaged: ManagedTransport, @unchecked Sendable {
     var handler: (String, String, [String: Any]) -> [String: Any] = { _, _, _ in [:] }
     var streamEvents: [[String: Any]] = []
     private(set) var streamOpenedBeforeSend: Bool?
+    /// Simulates a session stuck on an unanswered tool call: the first user.message is refused.
+    var stuck = false
 
     func request(_ method: String, _ path: String, body: Data?) async throws -> Data {
         let b = body.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } ?? [:]
-        let out: [String: Any] = lock.withLock {
+        let refuse: Bool = lock.withLock {
             requests.append((method, path, b))
-            return handler(method, path, b)
+            let isMessage = (b["events"] as? [[String: Any]])?.first?["type"] as? String == "user.message"
+            if stuck && isMessage { stuck = false; return true }
+            return false
         }
+        if refuse {
+            throw AnthropicHTTP.APIError(status: 400, type: "invalid_request_error",
+                                         message: "Invalid user.message event at events[0]: waiting on responses to events [sevt_old]")
+        }
+        let out: [String: Any] = lock.withLock { handler(method, path, b) }
         return try JSONSerialization.data(withJSONObject: out)
     }
 
@@ -63,6 +72,9 @@ final class ManagedAgentTests: XCTestCase {
             }
         }
         m.streamEvents = [
+            // Left over from an earlier turn: must not end this one.
+            ["type": "session.status_idle", "stop_reason": ["type": "end_turn"]],
+            ["type": "user.message"],
             ["type": "session.status_running"],
             ["type": "agent.custom_tool_use", "id": "sevt_1", "name": "list_available_data", "input": [:]],
             ["type": "session.status_idle", "stop_reason": ["type": "requires_action", "event_ids": ["sevt_1"]]],
@@ -134,6 +146,7 @@ final class ManagedAgentTests: XCTestCase {
         let tz = TimeZone(identifier: sc.tz)!
         let day = ReportData.dayString(Date(timeIntervalSince1970: sc.now), tz)
         m.streamEvents = [
+            ["type": "user.message"],
             ["type": "agent.custom_tool_use", "id": "sevt_r", "name": "create_report",
              "input": ["title": "For my GP", "start": day, "end": day, "labels": ["heart_rate"], "summary": "Stable."]],
             ["type": "agent.message", "content": [["type": "text", "text": "Done."]]],
@@ -142,6 +155,28 @@ final class ManagedAgentTests: XCTestCase {
         let ans = await (try assistant(db, m, sc, reports, chat: false)).ask("Make a report")
         let r = try XCTUnwrap(ans.reportIDs.last.flatMap(reports.record))
         XCTAssertEqual(r.title, "For my GP")
+    }
+
+    func testStuckSessionIsInterruptedThenAsked() async throws {
+        let (db, m, sc, reports) = try setup("stuck")
+        m.stuck = true
+        let ans = await (try assistant(db, m, sc, reports, chat: true)).ask("How did I sleep?")
+        XCTAssertNil(ans.error)
+        XCTAssertEqual(ans.text, "You slept about 7 hours a night.")
+        let types = m.sentEvents.compactMap { $0["type"] as? String }
+        XCTAssertEqual(Array(types.prefix(3)), ["user.message", "user.interrupt", "user.message"])
+    }
+
+    /// Real stream bytes: `lines` drops the blank lines that end SSE events, so events must be
+    /// emitted from their data lines (the bug that left the first device question unanswered).
+    func testSSEParserWithoutBlankLines() {
+        var p = SSEParser()
+        let lines = [": ping", "event: agent.custom_tool_use", #"data: {"type":"agent.custom_tool_use","id":"sevt_1"}"#,
+                     "event: session.status_idle", #"data: {"type":"session.status_idle","#,
+                     #"data: "stop_reason":{"type":"requires_action"}}"#, ""]
+        let out = lines.compactMap { p.feed($0) } + [p.flush()].compactMap { $0 }
+        let types = out.compactMap { ((try? JSONSerialization.jsonObject(with: $0)) as? [String: Any])?["type"] as? String }
+        XCTAssertEqual(types, ["agent.custom_tool_use", "session.status_idle"])
     }
 
     func testBackendSelection() throws {
