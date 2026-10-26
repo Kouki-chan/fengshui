@@ -70,6 +70,13 @@ Open **Fengshui** on the iPhone.
 Tap **Data**. ✅ Vitals, Today and Last night tiles appear, and the status line says "Live · updated …". Tap a tile to see its chart and samples. Open Fengshui on the watch, then tap **Ask watch to send now**: "Last data from watch" should change to "just now" within a minute. Start a session on the watch: a pulsing **live heart rate** card appears on the phone.
 ❌ "No data yet": the Health permission isn't granted. Settings → Privacy & Security → Health → Fengshui → Turn On All.
 
+### B9c. Reports, bell and health monitor
+- **Reports** tab → **30 d** → **Create PDF report**. ✅ A PDF opens. The share button saves or sends it, and the bell shows **1**.
+- With a key (B11): **Let AI choose the data** → check the reasons under "Data to include" → **Create PDF report**. The PDF opens with an AI summary.
+- **Ask** a question. ✅ Under the answer, "Report saved · open". It's also under Reports → Questions.
+- **Bell** → **Select** → **Select all** → **Delete**. ✅ Empty, and the badge is gone.
+- Settings → **Health monitor** (after B10) → every **5 min** for **1 h** → **Start**. Keep the app open: "Checks with data" counts up, and it says "Pull mode" (push needs the paid account). To let the Mac's agent use Claude, run `security add-generic-password -a "$USER" -s fengshui-anthropic -w` in Terminal. It asks for the key without showing it. Then restart the server.
+
 ### B10. Connect the app to the Mac
 Settings → **Server & compute** → **Find on this network** (or type `http://<your-mac>.local:8765`) → paste the **token** from A5 → **Save & test connection**.
 ✅ **Expected:** "Connected ✓". Allow the **Local Network** prompt if it appears.
