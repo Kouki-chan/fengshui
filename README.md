@@ -18,13 +18,6 @@ Spec: [`docs/SPEC.md`](docs/SPEC.md) · Plan: [`docs/PLAN.md`](docs/PLAN.md) · 
 | `fixtures/` | synthetic test data only |
 
 
-Nothing is installed system-wide. Device builds need your Team ID in `apple/Config/Local.xcconfig` (gitignored):
-
-```
-DEVELOPMENT_TEAM = ABCDE12345
-```
-
-Find it in Xcode → Settings → Accounts → your Apple Account → Personal Team.
 
 ## Everyday commands
 
