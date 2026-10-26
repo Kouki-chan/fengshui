@@ -28,6 +28,7 @@ enum ReportPDF {
             w.text(r.title, .title)
             w.text("Period: \(Fmt.period(r.startDate, r.endDate, tz))  ·  Generated \(Fmt.dateTime(at, tz))", .meta)
             if let p = r.purpose, !p.isEmpty { w.text("Purpose: \(p)", .meta) }
+            if let by = r.answeredBy, r.summary?.isEmpty == false { w.text("Answered by: \(by)", .meta) }
             w.space(10)
             if let q = r.question {
                 w.heading("Question")
@@ -37,8 +38,8 @@ enum ReportPDF {
             if let s = r.summary, !s.isEmpty {
                 w.heading(r.kind == .question ? "Answer" : "Summary")
                 for para in Fmt.paragraphs(s) { w.text(para, .body) }
-                w.text("Written by an AI assistant (Claude) from the data in this report. Check it against the tables below.",
-                       .note)
+                w.text("Written by an AI assistant (\(r.answeredBy ?? "Claude")) from the data in this report. "
+                       + "Check it against the tables below.", .note)
                 w.space(8)
             }
             let present = sections.filter { !$0.isEmpty }

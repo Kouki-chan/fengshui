@@ -15,6 +15,8 @@ struct ReportRequest: Sendable, Equatable {
     var summary: String?
     var question: String?
     var aiLogID: Int64?
+    /// Which AI wrote the summary or answer (backend, agent, session); nil = no AI text.
+    var answeredBy: String?
 }
 
 /// One label's data in the report, already in everyday units.

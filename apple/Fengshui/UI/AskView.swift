@@ -37,6 +37,11 @@ struct AskView: View {
                             .accessibilityIdentifier("ask.answer")
                         Text("\(a.toolCalls.count) tool calls · \(a.inputTokens + a.outputTokens) tokens\(a.error.map { " · \($0)" } ?? "")")
                             .font(.caption2).foregroundStyle(.secondary)
+                        if let by = a.answeredBy {
+                            Label("via \(by)", systemImage: by.hasPrefix("Managed") ? "person.badge.shield.checkmark" : "cloud")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("ask.answeredBy")
+                        }
                         if let r = reportFor[i] ?? a.reportIDs.last.flatMap(env.reports.record) {
                             NavigationLink { ReportDetailView(env: env, report: r) } label: {
                                 Label("Report saved (\(r.pages) p) · open", systemImage: "doc.richtext").font(.caption)

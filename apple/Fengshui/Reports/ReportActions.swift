@@ -6,7 +6,7 @@ struct ReportActions: AssistantActions {
     let store: ReportStore
     var forced: ReportRequest?
 
-    func run(name: String, inputJSON: Data) async throws -> AssistantActionResult? {
+    func run(name: String, inputJSON: Data, answeredBy: String) async throws -> AssistantActionResult? {
         let input = (try JSONSerialization.jsonObject(with: inputJSON)) as? [String: Any] ?? [:]
         switch name {
         case "propose_report_labels":
@@ -18,7 +18,7 @@ struct ReportActions: AssistantActions {
                                     startDate: String((input["start"] as? String ?? "").prefix(10)),
                                     endDate: String((input["end"] as? String ?? "").prefix(10)),
                                     labels: input["labels"] as? [String] ?? [],
-                                    summary: input["summary"] as? String)
+                                    summary: input["summary"] as? String, answeredBy: answeredBy)
             if let f = forced {
                 req.startDate = f.startDate
                 req.endDate = f.endDate

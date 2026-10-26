@@ -201,6 +201,7 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual([r.startDate, r.endDate], [a, b])
         XCTAssertEqual(r.labels, ["heart_rate", "sleep_analysis", "step_count"])
         XCTAssertEqual(r.summary, "Slept 7 h on average.")
+        XCTAssertEqual(r.answeredBy, "Claude API · \(ClaudeAssistant.smokeTestModel)")
         // A question answer that already created a report doesn't get a second one.
         let none = await store.questionReport(question: "q", answer: c)
         XCTAssertNil(none)
@@ -209,7 +210,8 @@ final class ReportTests: XCTestCase {
     func testEveryQuestionGetsAReportScopedToTheToolCalls() async throws {
         let (_, store, _, sc) = try env("question")
         let (a, b) = days(sc, back: 2)
-        var ans = ClaudeAssistant.Answer(text: "You slept about 7 hours and walked 9,000 steps a day.")
+        var ans = ClaudeAssistant.Answer(text: "You slept about 7 hours and walked 9,000 steps a day.",
+                                         answeredBy: "Managed Agent “FengShui Agent” (agent_x) · session sesn_y")
         ans.calls = [.init(name: "get_sleep_nights", input: ["start": a, "end": b]),
                      .init(name: "get_series", input: ["label": "step_count", "start": a, "end": b, "bucket": "1d", "agg": "sum"]),
                      .init(name: "get_series", input: ["label": "step_count", "start": a, "end": b, "bucket": "1h", "agg": "sum"])]
@@ -220,6 +222,8 @@ final class ReportTests: XCTestCase {
         XCTAssertEqual(r.question, "How did I sleep and move lately?")
         let text = PDFDocument(url: store.url(r))?.string ?? ""
         XCTAssertTrue(text.contains("Question") && text.contains("Answer") && text.contains("walked 9,000 steps"))
+        XCTAssertEqual(r.answeredBy, "Managed Agent “FengShui Agent” (agent_x) · session sesn_y")
+        XCTAssertTrue(text.contains("Answered by: Managed Agent"))
         // No tools called: the last 7 days, question and answer only.
         let plain = try await XCTUnwrapAsync(await store.questionReport(question: "Hi?", answer: .init(text: "Hello.")))
         XCTAssertEqual(plain.labels, [])

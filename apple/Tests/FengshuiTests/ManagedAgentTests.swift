@@ -1,5 +1,6 @@
 import FengshuiKit
 import GRDB
+import PDFKit
 import XCTest
 @testable import Fengshui
 
@@ -66,7 +67,7 @@ final class ManagedAgentTests: XCTestCase {
             switch (method, path) {
             case ("GET", "v1/sessions/sesn_chat"):
                 return session ?? ["id": "sesn_chat", "status": "idle", "environment_id": "env_9", "agent": ["tools": existing]]
-            case ("GET", "v1/agents/agent_me"): return ["id": "agent_me", "tools": existing]
+            case ("GET", "v1/agents/agent_me"): return ["id": "agent_me", "name": "FengShui Agent", "tools": existing]
             case ("POST", "v1/sessions"): return ["id": "sesn_new", "status": "idle"]
             default: return [:]
             }
@@ -155,6 +156,12 @@ final class ManagedAgentTests: XCTestCase {
         let ans = await (try assistant(db, m, sc, reports, chat: false)).ask("Make a report")
         let r = try XCTUnwrap(ans.reportIDs.last.flatMap(reports.record))
         XCTAssertEqual(r.title, "For my GP")
+        // The report says which agent and session wrote it.
+        XCTAssertEqual(r.answeredBy, "Managed Agent “FengShui Agent” (agent_me) · session sesn_new")
+        XCTAssertEqual(ans.answeredBy, r.answeredBy)
+        let text = PDFDocument(url: reports.url(r))?.string ?? ""
+        XCTAssertTrue(text.contains("Answered by: Managed Agent"), text.prefix(400).description)
+        XCTAssertTrue(text.contains("FengShui Agent"))
     }
 
     func testStuckSessionIsInterruptedThenAsked() async throws {

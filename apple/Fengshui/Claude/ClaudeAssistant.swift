@@ -66,7 +66,8 @@ struct AnthropicHTTP: MessagesTransport {
 /// choice back to the UI. Input arrives as JSON so it can cross the actor boundary.
 protocol AssistantActions: Sendable {
     /// nil = not an action tool (the loop runs it through ClaudeTools).
-    func run(name: String, inputJSON: Data) async throws -> AssistantActionResult?
+    /// `answeredBy`: which backend is asking (shown in reports it creates).
+    func run(name: String, inputJSON: Data, answeredBy: String) async throws -> AssistantActionResult?
 }
 
 struct AssistantActionResult: Sendable {
@@ -99,6 +100,8 @@ actor ClaudeAssistant: Assistant {
         var calls: [ToolCall] = []
         var reportIDs: [Int64] = []
         var proposedLabels: [String]?
+        /// e.g. "Claude API · claude-sonnet-5-5" or "Managed Agent “FengShui Agent” (agent_…) · session sesn_…".
+        var answeredBy: String?
     }
 
     static let systemPrompt = """
@@ -138,6 +141,8 @@ actor ClaudeAssistant: Assistant {
         self.model = model
     }
 
+    nonisolated var answeredBy: String { "Claude API · \(model)" }
+
     /// The request body for a conversation so far (also inspected by the privacy test).
     func requestBody(_ messages: [[String: Any]]) -> (body: [String: Any], betas: [String]) {
         // Volatile context (today's date) goes in the first user turn, not the system prompt,
@@ -172,7 +177,7 @@ actor ClaudeAssistant: Assistant {
             ["type": "text", "text": "Now: \(Self.localDate(now, timeZone)) (\(timeZone.identifier))."],
             ["type": "text", "text": question],
         ]]]
-        var answer = Answer(text: "")
+        var answer = Answer(text: "", answeredBy: answeredBy)
         var calls: [[String: Any]] = []
         var toolChars = 0
         var rounds = 0
@@ -217,7 +222,7 @@ actor ClaudeAssistant: Assistant {
                     } else {
                         do {
                             let json = try JSONSerialization.data(withJSONObject: input)
-                            if let actions, let r = try await actions.run(name: name, inputJSON: json) {
+                            if let actions, let r = try await actions.run(name: name, inputJSON: json, answeredBy: answeredBy) {
                                 out = r.output
                                 if let id = r.reportID { answer.reportIDs.append(id) }
                                 if let p = r.proposedLabels { answer.proposedLabels = p }

@@ -48,6 +48,9 @@ final class AppDatabase: Sendable {
                   bytes INTEGER NOT NULL);
                 """)
         }
+        m.registerMigration("v3_report_answered_by") { db in
+            try db.execute(sql: "ALTER TABLE reports ADD COLUMN answered_by TEXT")
+        }
         return m
     }
 

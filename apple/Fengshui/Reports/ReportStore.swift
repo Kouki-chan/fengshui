@@ -13,6 +13,7 @@ struct ReportRecord: Sendable, Equatable, Identifiable {
     var labels: [String]
     var summary: String?
     var question: String?
+    var answeredBy: String? = nil
     var fileName: String
     var pages: Int
     var bytes: Int
@@ -91,10 +92,10 @@ final class ReportStore: Sendable {
         let id = try await db.writer.write { db -> Int64 in
             try db.execute(sql: """
                 INSERT INTO reports (created_at, kind, title, purpose, start_date, end_date, labels_json, summary, question,
-                                     ai_log_id, file_name, pages, bytes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                     ai_log_id, file_name, pages, bytes, answered_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, arguments: [now.timeIntervalSince1970, req.kind.rawValue, req.title, req.purpose, req.startDate,
                                  req.endDate, labelsJSON, req.summary, req.question, req.aiLogID, name, out.pages,
-                                 out.data.count])
+                                 out.data.count, req.answeredBy])
             return db.lastInsertedRowID
         }
         inbox.add(identifier: "report-\(id)", kind: "report", title: "Report ready: \(req.title)",
@@ -113,7 +114,8 @@ final class ReportStore: Sendable {
         let labels = (try? JSONDecoder().decode([String].self, from: Data((r["labels_json"] as String).utf8))) ?? []
         return ReportRecord(id: r["id"], createdAt: r["created_at"], kind: r["kind"], title: r["title"], purpose: r["purpose"],
                             startDate: r["start_date"], endDate: r["end_date"], labels: labels, summary: r["summary"],
-                            question: r["question"], fileName: r["file_name"], pages: r["pages"], bytes: r["bytes"])
+                            question: r["question"], answeredBy: r["answered_by"], fileName: r["file_name"],
+                            pages: r["pages"], bytes: r["bytes"])
     }
 
     func all() -> [ReportRecord] { (try? db.writer.read { try Self.fetchAll($0) }) ?? [] }
@@ -171,7 +173,7 @@ final class ReportStore: Sendable {
         let title = question.count > 60 ? String(question.prefix(57)) + "…" : question
         let req = ReportRequest(kind: .question, title: title, purpose: nil, startDate: sc.start, endDate: sc.end,
                                 labels: sc.labels.filter(present.contains), summary: answer.text, question: question,
-                                aiLogID: answer.logID)
+                                aiLogID: answer.logID, answeredBy: answer.answeredBy)
         return try? await create(req)
     }
 }

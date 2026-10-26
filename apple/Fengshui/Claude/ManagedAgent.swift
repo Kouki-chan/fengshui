@@ -107,6 +107,8 @@ struct ManagedAgentConfig: Sendable, Codable, Equatable {
     /// The Ask chat continues in this session; replaced automatically if it ends.
     var chatSessionID = ""
     var environmentID = ""
+    /// The agent's display name, fetched once (optional so older saved settings still decode).
+    var agentName: String?
 
     var isUsable: Bool { enabled && agentID.hasPrefix("agent_") }
 
@@ -179,8 +181,19 @@ actor ManagedAssistant: Assistant {
         return env
     }
 
+    /// "Managed Agent “FengShui Agent” (agent_…) · session sesn_…" for reports and the Ask tab.
+    private func answeredBy(_ sessionID: String?) -> String {
+        let name = config.agentName.map { "“\($0)” " } ?? ""
+        return "Managed Agent \(name)(\(config.agentID))" + (sessionID.map { " · session \($0)" } ?? "")
+    }
+
+    private func rememberName(_ agent: [String: Any]) {
+        if let n = agent["name"] as? String, n != config.agentName { config.agentName = n; config.save(db) }
+    }
+
     private func newSession(title: String) async throws -> String {
         let agent = try await json("GET", "v1/agents/\(config.agentID)")
+        rememberName(agent)
         let tools = sessionTools(existing: agent["tools"] as? [[String: Any]] ?? [])
         let s = try await json("POST", "v1/sessions", [
             "agent": ["type": "agent_with_overrides", "id": config.agentID, "tools": tools],
@@ -229,6 +242,7 @@ actor ManagedAssistant: Assistant {
             if box.answer.text.isEmpty { box.answer.text = "Couldn't reach your agent: \(error)" }
         }
         var answer = box.answer
+        if answer.answeredBy == nil { answer.answeredBy = answeredBy(nil) }
         answer.logID = ClaudeAssistant.log(db: db, model: "managed:\(config.agentID)", question: question, calls: box.calls,
                                            answer: answer, at: now)
         return answer
@@ -241,7 +255,9 @@ actor ManagedAssistant: Assistant {
     }
 
     private func run(_ question: String, now: Date, box: Box) async throws {
+        if config.agentName == nil, let agent = try? await json("GET", "v1/agents/\(config.agentID)") { rememberName(agent) }
         let sid = chat ? try await chatSession() : try await newSession(title: "Fengshui: \(question.prefix(60))")
+        box.answer.answeredBy = answeredBy(sid)
         // Stream first, then send: events before the stream opens would arrive as one late batch.
         let stream = try await transport.events(sid)
         let message: [String: Any] = ["events": [[
@@ -282,7 +298,7 @@ actor ManagedAssistant: Assistant {
                 } else {
                     do {
                         let inputJSON = try JSONSerialization.data(withJSONObject: input)
-                        if let actions, let r = try await actions.run(name: name, inputJSON: inputJSON) {
+                        if let actions, let r = try await actions.run(name: name, inputJSON: inputJSON, answeredBy: box.answer.answeredBy ?? answeredBy(sid)) {
                             out = r.output
                             if let rid = r.reportID { box.answer.reportIDs.append(rid) }
                             if let p = r.proposedLabels { box.answer.proposedLabels = p }
