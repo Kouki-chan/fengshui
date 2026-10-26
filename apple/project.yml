@@ -73,7 +73,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [fetch, processing]
+        UIBackgroundModes: [fetch, processing, remote-notification]
         BGTaskSchedulerPermittedIdentifiers:
           - com.chevin.fengshui.refresh
           - com.chevin.fengshui.processing

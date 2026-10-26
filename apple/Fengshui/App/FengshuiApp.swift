@@ -12,6 +12,9 @@ struct FengshuiApp: App {
             let env = try AppEnvironment.make()
             if !env.isTestMode { BackgroundTaskID.register(env: env) }
             AppDelegate.scheduler = env.windDown
+            AppDelegate.monitor = env.monitor
+            AppDelegate.inbox = env.inbox
+            AppDelegate.registerForPush = !env.isTestMode
             _model = State(initialValue: AppModel(env: env))
         } catch {
             _startupError = State(initialValue: "\(error)")
@@ -24,6 +27,7 @@ struct FengshuiApp: App {
                 RootView(model: model)
                     .onChange(of: scenePhase) { _, phase in
                         if phase == .active { Task { await model.appBecameActive() } }
+                        if phase != .active { model.appLeftForeground() }
                         if phase == .background, !model.env.isTestMode {
                             BackgroundTaskID.scheduleRefresh()
                             BackgroundTaskID.scheduleProcessing()
@@ -55,16 +59,19 @@ struct MainTabs: View {
     var body: some View {
         TabView {
             Tab("Today", systemImage: "sun.max") {
-                NavigationStack { TodayView(env: model.env) }
+                NavigationStack { TodayView(env: model.env).inboxToolbar(model.env) }
             }
             Tab("Data", systemImage: "waveform.path.ecg") {
-                NavigationStack { DataView(env: model.env) }
+                NavigationStack { DataView(env: model.env).inboxToolbar(model.env) }
+            }
+            Tab("Reports", systemImage: "doc.richtext") {
+                NavigationStack { ReportsView(env: model.env).inboxToolbar(model.env) }
             }
             Tab("Ask", systemImage: "bubble.left.and.text.bubble.right") {
-                NavigationStack { AskView(env: model.env) }
+                NavigationStack { AskView(env: model.env).inboxToolbar(model.env) }
             }
             Tab("Settings", systemImage: "gear") {
-                NavigationStack { SettingsView(model: model) }
+                NavigationStack { SettingsView(model: model).inboxToolbar(model.env) }
             }
         }
     }
@@ -87,6 +94,8 @@ struct SettingsView: View {
             Section("Mac server") {
                 NavigationLink("Server & compute") { ServerSettingsView(env: model.env) }
                     .accessibilityIdentifier("settings.server")
+                NavigationLink("Health monitor") { MonitorView(env: model.env) }
+                    .accessibilityIdentifier("settings.monitor")
             }
             Section("Watch") {
                 NavigationLink("Recording") { RecordingView(env: model.env) }

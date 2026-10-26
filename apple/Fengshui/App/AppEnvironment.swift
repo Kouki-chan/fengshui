@@ -21,6 +21,9 @@ final class AppEnvironment: Sendable {
     let secrets: SecretStore
     let server: ServerSync
     let questions: AIQuestionStore
+    let inbox: InboxStore
+    let reports: ReportStore
+    let monitor: MonitorClient
     let log: EventLog
     let testScenario: String?
     let timeZone: TimeZone
@@ -28,7 +31,7 @@ final class AppEnvironment: Sendable {
     init(db: AppDatabase, clock: Clock, health: HealthStore, location: LocationProvider, motion: MotionHistory,
          watchLink makeLink: (WatchImporter, EventLog, EngineRunner) -> WatchLink,
          notifications: NotificationCenter, secrets: SecretStore, network: NetworkStatus,
-         testScenario: String?, timeZone: TimeZone) {
+         testScenario: String?, timeZone: TimeZone, reportsDirectory: URL? = nil) {
         self.db = db
         self.clock = clock
         self.health = health
@@ -54,6 +57,12 @@ final class AppEnvironment: Sendable {
         self.engine = engine
         questions = AIQuestionStore(db: db, clock: clock)
         try? questions.seedIfNeeded()
+        let inbox = InboxStore(db: db, clock: clock, center: notifications)
+        self.inbox = inbox
+        reports = ReportStore(db: db, clock: clock, timeZone: timeZone, inbox: inbox,
+                              directory: reportsDirectory ?? ReportStore.defaultDirectory())
+        monitor = MonitorClient(db: db, server: server, clock: clock, inbox: inbox, notifications: notifications, log: log,
+                                deviceID: Self.deviceID(db), liveSync: { await Self.syncLiveTypes(sync, log: log) })
         places = PlaceService(db: db, location: location, log: log, clock: clock,
                               onHomeArrival: { ts in
                                   await engine.run(EngineRunner.lightTasks, trigger: "home_arrival")
@@ -92,15 +101,34 @@ final class AppEnvironment: Sendable {
         ((try? db.preference(ClaudeAssistant.modelKey, as: String.self)) ?? nil) ?? ClaudeAssistant.defaultModel
     }
 
-    /// nil until an API key is entered in Settings (Keychain).
-    func assistant(transport: MessagesTransport? = nil) -> ClaudeAssistant? {
+    /// Pulls the fast-changing HealthKit types now (Data tab, monitor checks). Skipped until the
+    /// onboarding backfill finishes, so it never races the backfill's anchors.
+    static func syncLiveTypes(_ sync: HealthSync, log: EventLog) async {
+        guard (try? await sync.backfillDone()) == true else { return }
+        for id in DataSnapshot.liveTypes {
+            guard let t = HealthTypeCatalog.info(id) else { continue }
+            do {
+                let n = try await sync.sync(t)
+                if n > 0 { log.add("live_sync", "\(t.label) +\(n)") }
+            } catch {
+                log.add("live_sync_error", "\(t.label): \(error)")
+            }
+        }
+    }
+
+    func syncLiveTypes() async { await Self.syncLiveTypes(healthSync, log: log) }
+
+    /// nil until an API key is entered in Settings (Keychain). Report tools are always available;
+    /// the Report tab passes its own actions to pin the user's filter.
+    func assistant(transport: MessagesTransport? = nil, actions: AssistantActions? = nil) -> ClaudeAssistant? {
         let t: MessagesTransport
         if let transport { t = transport } else {
             guard let key = secrets.get(SecretKey.anthropicKey), !key.isEmpty else { return nil }
             t = AnthropicHTTP(apiKey: key)
         }
         guard let tools = try? ClaudeTools(dbPath: db.path, timeZone: timeZone) else { return nil }
-        return ClaudeAssistant(db: db, tools: tools, transport: t, clock: clock, timeZone: timeZone, model: claudeModel)
+        return ClaudeAssistant(db: db, tools: tools, transport: t, clock: clock, timeZone: timeZone, model: claudeModel,
+                               actions: actions ?? ReportActions(store: reports))
     }
 
     var scheduledQuestions: ScheduledQuestions {

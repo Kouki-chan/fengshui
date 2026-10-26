@@ -458,19 +458,7 @@ struct DataView: View {
         tick += 1
     }
 
-    private func syncLiveTypes() async {
-        // Never race the onboarding backfill: it owns the anchors until it's done.
-        guard (try? await env.healthSync.backfillDone()) == true else { return }
-        for id in DataSnapshot.liveTypes {
-            guard let t = HealthTypeCatalog.info(id) else { continue }
-            do {
-                let n = try await env.healthSync.sync(t)
-                if n > 0 { env.log.add("live_sync", "\(t.label) +\(n)") }
-            } catch {
-                env.log.add("live_sync_error", "\(t.label): \(error)")
-            }
-        }
-    }
+    private func syncLiveTypes() async { await env.syncLiveTypes() }
 }
 
 struct Tile: View {

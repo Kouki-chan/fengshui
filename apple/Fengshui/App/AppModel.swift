@@ -24,6 +24,7 @@ final class AppModel {
     }
 
     var healthAuthError: String?
+    private var monitorLoop: Task<Void, Never>?
 
     func requestHealth() async {
         do {
@@ -93,10 +94,31 @@ final class AppModel {
         await env.places.start()
         await env.delivery.syncNow(trigger: "foreground")
         await env.windDown.reconcileDelivered()
+        await env.inbox.ingestDelivered()
+        startMonitorLoop()
         if let expiry = SigningExpiry.expirationDate() {
             await SigningExpiry.scheduleReminder(expiry: expiry, now: env.clock.now, center: env.notifications,
                                                  timeZone: env.timeZone)
         }
+    }
+}
+
+extension AppModel {
+    /// While the app is open: send monitor readings when due and collect alerts (pull mode, D-19).
+    func startMonitorLoop() {
+        guard monitorLoop == nil, !env.isTestMode else { return }
+        let monitor = env.monitor
+        monitorLoop = Task {
+            while !Task.isCancelled {
+                await monitor.tick(trigger: "foreground")
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    func appLeftForeground() {
+        monitorLoop?.cancel()
+        monitorLoop = nil
     }
 }
 
@@ -111,6 +133,7 @@ enum BackgroundTaskID {
             run(task) {
                 await env.delivery.syncNow(trigger: "bg_refresh")
                 await env.scheduledQuestions.runDue()
+                await env.monitor.tick(trigger: "background")
             }
         }
         BGTaskScheduler.shared.register(forTaskWithIdentifier: processing, using: nil) { task in
