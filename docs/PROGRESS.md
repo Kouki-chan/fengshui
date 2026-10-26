@@ -177,3 +177,6 @@
 
 ### MCP server (2026-10-25)
 **Built:** `/mcp` on the Mac server (D-21). **Gate:** server tests 32 (5 new: auth required, initialize and tool list with read-only annotations, tools return processed data only, bad arguments become tool errors, raw-table guard). Also checked end to end with the official MCP client against a real uvicorn instance (synthetic data, port 8799): 7 tools listed, `list_available_data` answered.
+
+### Managed Agent backend + deployment (2026-10-25)
+**Built:** D-22: phone `ManagedAssistant`, Mac `ManagedMonitorAgent`, `DeploymentWatcher`, `scripts/managed_agent_setup.py`. **Gate:** `scripts/test_all.sh --no-live` fully green (12 layers, 268 s). iOS unit 94 (5 new: chat session reused with tools added session-locally and the agent untouched, stream-first ordering, tool results answer by event id with no raw data, a fresh session per report step, an ended session replaced, a report created through the agent). Server 37 (5 new: managed monitor decision and fallback; deployment pending and new tool calls, phone-only tools refused, notify and final-message inbox filing, runs served once). **Not run live:** there's no Anthropic key on this Mac or in the test environment; run `scripts/managed_agent_setup.py` once one is in the Keychain.
