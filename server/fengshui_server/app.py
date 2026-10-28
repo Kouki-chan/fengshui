@@ -145,7 +145,7 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
         if "zc" in zc_holder:
             await zc_holder["zc"].async_close()
 
-    app = FastAPI(title="Fengshui server", version=ENGINE_VERSION, lifespan=lifespan)
+    app = FastAPI(title="HealthBot server", version=ENGINE_VERSION, lifespan=lifespan)
     app.state.store = store
     app.state.settings = settings
     app.state.monitor = monitor
@@ -323,7 +323,7 @@ async def _advertise(port: int):
         addr = socket.gethostbyname(host if host.endswith(".local") else host + ".local")
     except OSError:
         addr = "127.0.0.1"
-    info = ServiceInfo("_fengshui._tcp.local.", f"Fengshui on {host.split('.')[0]}._fengshui._tcp.local.",
+    info = ServiceInfo("_fengshui._tcp.local.", f"HealthBot on {host.split('.')[0]}._fengshui._tcp.local.",
                        addresses=[socket.inet_aton(addr)], port=port,
                        properties={"engine": ENGINE_VERSION, "path": "/"})
     zc = AsyncZeroconf()

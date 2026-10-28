@@ -10,7 +10,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Fengshui</string>
+	<string>HealthBot</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,17 +41,17 @@
 		<string>_fengshui._tcp</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Fengshui reads your Health data to detect activity and plan your evening wind-down. Data stays on your iPhone and your own Mac.</string>
+	<string>HealthBot reads your Health data to detect activity and plan your evening wind-down. Data stays on your iPhone and your own Mac.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Fengshui saves the recording sessions you start on your Apple Watch as workouts.</string>
+	<string>HealthBot saves the recording sessions you start on your Apple Watch as workouts.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Fengshui syncs with the Fengshui server on your own Mac over your home network.</string>
+	<string>HealthBot syncs with the HealthBot server on your own Mac over your home network.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Fengshui notes when you arrive at or leave your saved places (like Home and Work) to plan your evening. It never tracks a continuous route.</string>
+	<string>HealthBot notes when you arrive at or leave your saved places (like Home and Work) to plan your evening. It never tracks a continuous route.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Fengshui uses your location to set your saved places.</string>
+	<string>HealthBot uses your location to set your saved places.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Fengshui reads your iPhone's motion activity (walking, driving…) to label your day.</string>
+	<string>HealthBot reads your iPhone's motion activity (walking, driving…) to label your day.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

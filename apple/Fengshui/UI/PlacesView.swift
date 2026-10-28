@@ -18,7 +18,7 @@ struct PlacesView: View {
                 row(.home, title: "Home")
                 row(.work, title: "Work")
             } footer: {
-                Text("Fengshui only notices arrivals and departures at your places. It never tracks a continuous route.")
+                Text("HealthBot only notices arrivals and departures at your places. It never tracks a continuous route.")
             }
             Section("Other places") {
                 ForEach(places.filter { $0.kind == .custom }) { p in

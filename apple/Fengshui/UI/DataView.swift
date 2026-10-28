@@ -239,47 +239,123 @@ func hm(_ secs: Double) -> String {
     return m >= 60 ? "\(m / 60) h \(m % 60) m" : "\(m) m"
 }
 
+/// The Data tab's state, owned by UIState so it survives tab switches: coming back to the tab
+/// shows the last snapshot at once instead of re-reading everything on the main thread.
+@MainActor
+@Observable
+final class DataModel {
+    private(set) var snapshot = DataSnapshot()
+    private(set) var loaded = false
+    private(set) var updatedAt: Date?
+    private(set) var live: LiveWatchReading?
+    private let env: AppEnvironment
+    private var lastFlush: Date?
+
+    /// A HealthKit backfill or watch import commits many times a second; refetch at most this often.
+    static let throttle: Duration = .seconds(1)
+    static let pollInterval: Duration = .seconds(60)
+
+    init(env: AppEnvironment) { self.env = env }
+
+    /// While the tab is on screen: refetch when the tables the snapshot reads change. The cheap
+    /// observation only signals; the snapshot is read off the main thread, coalesced and throttled.
+    func observe() async {
+        let signal = ValueObservation.tracking(region: Table("processed_samples"), Table("raw_chunks"),
+                                               Table("raw_minute_features"), fetch: { _ in true })
+        do {
+            for try await _ in signal.values(in: env.db.writer, bufferingPolicy: .bufferingNewest(1)) {
+                await refresh()
+                try await Task.sleep(for: Self.throttle)
+            }
+        } catch {}
+    }
+
+    func refresh() async {
+        let env = env
+        do {
+            let s = try await env.db.writer.read { db in try DataSnapshot.fetch(db, now: env.clock.now, timeZone: env.timeZone) }
+            if s != snapshot { snapshot = s }
+            loaded = true
+            updatedAt = Date()
+        } catch {
+            env.log.add("data_view_error", "\(error)")
+        }
+    }
+
+    /// While on screen: pull the fast-changing HealthKit types every minute (observer queries
+    /// also fire on their own) and ask the watch for its latest file (at most once a minute).
+    func pollWhileVisible() async {
+        flushWatch()
+        live = env.watchLink.live
+        while !Task.isCancelled {
+            try? await Task.sleep(for: Self.pollInterval)
+            if Task.isCancelled { break }
+            await env.syncLiveTypes()
+            await refresh()
+        }
+    }
+
+    func pull() async {
+        flushWatch(force: true)
+        await env.syncLiveTypes()
+        await refresh()
+    }
+
+    func liveChanged() { live = env.watchLink.live }
+
+    func flushWatch(force: Bool = false) {
+        if !force, let lastFlush, Date().timeIntervalSince(lastFlush) < 60 { return }
+        lastFlush = Date()
+        env.watchLink.requestFlush()
+    }
+}
+
 struct DataView: View {
     let env: AppEnvironment
-    @State private var snapshot = DataSnapshot()
-    @State private var loaded = false
-    @State private var updatedAt: Date?
-    @State private var live: LiveWatchReading?
-    /// Bumped every minute so "today" and the 24-h windows move even when nothing is written.
-    @State private var tick = 0
+    let model: DataModel
+    @Environment(\.theme) private var theme
 
-    static let pollInterval: Duration = .seconds(60)
-    private let grid = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    private let grid = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
+        let snapshot = model.snapshot
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 22) {
                 status
-                if let live, env.clock.now.timeIntervalSince1970 - live.ts < 30 { liveCard(live) }
-                if loaded && snapshot.isEmpty {
-                    ContentUnavailableView("No data yet", systemImage: "heart.text.square",
-                                           description: Text("Allow Fengshui to read Health data: Settings → Privacy & Security → Health → Fengshui → Turn On All."))
-                        .accessibilityIdentifier("data.empty")
+                if let live = model.live, env.clock.now.timeIntervalSince1970 - live.ts < 30 { liveCard(live) }
+                if model.loaded && snapshot.isEmpty {
+                    Card {
+                        ContentUnavailableView("No data yet", systemImage: "heart.text.square",
+                                               description: Text("Allow HealthBot to read Health data: Settings → Privacy & Security → Health → HealthBot → Turn On All."))
+                    }
+                    .accessibilityIdentifier("data.empty")
                 }
-                if !snapshot.vitals.isEmpty { vitals }
-                if !snapshot.totals.isEmpty { today }
-                if !snapshot.sleep.isEmpty { sleep }
-                watch
-                if !snapshot.recent.isEmpty { recent }
+                if !snapshot.vitals.isEmpty { vitals(snapshot) }
+                if !snapshot.totals.isEmpty { today(snapshot) }
+                if !snapshot.sleep.isEmpty { sleep(snapshot.sleep) }
+                watch(snapshot.watch)
+                if !snapshot.recent.isEmpty { recent(snapshot.recent) }
                 NavigationLink { DataTypesView(env: env) } label: {
-                    Label("All data types", systemImage: "list.bullet").frame(maxWidth: .infinity, alignment: .leading)
+                    Card {
+                        HStack(spacing: 12) {
+                            IconBadge(systemImage: "list.bullet", tint: theme.tint)
+                            Text("All data types").font(.body.weight(.medium))
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        }
+                    }
                 }
-                .padding(12).background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("data.allTypes")
             }
-            .padding(.horizontal, 16).padding(.bottom, 24)
+            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground))
+        .themedBackground()
         .navigationTitle("Data")
-        .refreshable { await pull() }
-        .task(id: tick) { await observe() }
-        .task { await pollWhileVisible() }
-        .onReceive(Foundation.NotificationCenter.default.publisher(for: .watchLive)) { _ in live = env.watchLink.live }
+        .refreshable { await model.pull() }
+        .task { await model.observe() }
+        .task { await model.pollWhileVisible() }
+        .onReceive(Foundation.NotificationCenter.default.publisher(for: .watchLive)) { _ in model.liveChanged() }
     }
 
     // MARK: Sections
@@ -287,10 +363,10 @@ struct DataView: View {
     private var status: some View {
         TimelineView(.periodic(from: .now, by: 5)) { _ in
             HStack(spacing: 6) {
-                Circle().fill(.green).frame(width: 7, height: 7)
-                Text(updatedAt.map { "Live · updated \(ago($0.timeIntervalSince1970, now: Date()))" } ?? "Connecting…")
+                Circle().fill(model.updatedAt == nil ? Color.secondary : theme.activity).frame(width: 7, height: 7)
+                Text(model.updatedAt.map { "Live · updated \(ago($0.timeIntervalSince1970, now: Date()))" } ?? "Connecting…")
                 Spacer()
-                Text(env.watchLink.isReachable ? "Watch connected" : "Watch not in range")
+                Label(env.watchLink.isReachable ? "Watch connected" : "Watch not in range", systemImage: "applewatch")
             }
             .font(.caption).foregroundStyle(.secondary)
         }
@@ -298,24 +374,32 @@ struct DataView: View {
     }
 
     private func liveCard(_ r: LiveWatchReading) -> some View {
-        HStack {
-            Image(systemName: "heart.fill").foregroundStyle(.red).symbolEffect(.pulse)
-            Text("\(Int(r.heartRate.rounded()))").font(.title2.weight(.semibold)).monospacedDigit()
-            Text("bpm · live from watch session").font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            Image(systemName: "heart.fill").font(.title2).symbolEffect(.pulse)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(Int(r.heartRate.rounded()))").font(.largeTitle.weight(.bold)).monospacedDigit()
+                        .contentTransition(.numericText())
+                    Text("bpm").font(.headline)
+                }
+                Text("Live from your watch session").font(.caption).opacity(0.85)
+            }
             Spacer()
         }
-        .padding(12).background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+        .foregroundStyle(theme.onHero)
+        .padding(16)
+        .background(theme.heroGradient, in: .rect(cornerRadius: 22, style: .continuous))
         .accessibilityIdentifier("data.liveHR")
     }
 
-    private var vitals: some View {
-        section("Vitals") {
-            LazyVGrid(columns: grid, spacing: 8) {
-                ForEach(snapshot.vitals) { r in
+    private func vitals(_ s: DataSnapshot) -> some View {
+        CardSection(title: "Vitals", systemImage: "heart.fill", tint: theme.heart) {
+            LazyVGrid(columns: grid, spacing: 10) {
+                ForEach(s.vitals) { r in
                     NavigationLink { DataTypeDetailView(env: env, label: r.label) } label: {
-                        Tile(title: DataSnapshot.title(r.label), value: DataSnapshot.format(r.value, unit: r.unit),
-                             unit: r.unit, caption: ago(r.ts, now: env.clock.now), series: r.series,
-                             tint: r.label.contains("heart") ? .red : .blue)
+                        StatTile(title: DataSnapshot.title(r.label), value: DataSnapshot.format(r.value, unit: r.unit),
+                                 unit: r.unit, caption: ago(r.ts, now: env.clock.now), systemImage: DataSnapshot.icon(r.label),
+                                 series: r.series, tint: theme.color(for: r.label))
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("data.vital.\(r.label)")
                 }
@@ -323,13 +407,14 @@ struct DataView: View {
         }
     }
 
-    private var today: some View {
-        section("Today") {
-            LazyVGrid(columns: grid, spacing: 8) {
-                ForEach(snapshot.totals) { t in
+    private func today(_ s: DataSnapshot) -> some View {
+        CardSection(title: "Today", systemImage: "figure.walk", tint: theme.activity) {
+            LazyVGrid(columns: grid, spacing: 10) {
+                ForEach(s.totals) { t in
                     NavigationLink { DataTypeDetailView(env: env, label: t.label) } label: {
-                        Tile(title: DataSnapshot.title(t.label), value: DataSnapshot.format(t.value, unit: t.unit),
-                             unit: t.unit, caption: "since midnight", tint: .orange)
+                        StatTile(title: DataSnapshot.title(t.label), value: DataSnapshot.format(t.value, unit: t.unit),
+                                 unit: t.unit, caption: "since midnight", systemImage: DataSnapshot.icon(t.label),
+                                 tint: theme.activity)
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("data.total.\(t.label)")
                 }
@@ -337,159 +422,146 @@ struct DataView: View {
         }
     }
 
-    private var sleep: some View {
-        let s = snapshot.sleep
-        return section("Last night") {
+    private func sleep(_ s: DataSnapshot.Sleep) -> some View {
+        CardSection(title: "Last night", systemImage: "moon.zzz.fill", tint: theme.sleep) {
             NavigationLink { DataTypeDetailView(env: env, label: "sleep_analysis") } label: {
-                HStack(spacing: 0) {
-                    stat("Asleep", hm(s.asleep))
-                    stat("Deep", hm(s.deep))
-                    stat("REM", hm(s.rem))
-                    stat("Awake", hm(s.awake))
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(hm(s.asleep)).font(.title2.weight(.semibold)).monospacedDigit()
+                            Text("asleep").font(.caption).foregroundStyle(.secondary)
+                        }
+                        SleepBar(sleep: s, tint: theme.sleep).frame(height: 12)
+                        HStack(spacing: 0) {
+                            stat("Deep", hm(s.deep), theme.sleep)
+                            stat("Core", hm(s.core), theme.sleep.opacity(0.6))
+                            stat("REM", hm(s.rem), theme.sleep.opacity(0.35))
+                            stat("Awake", hm(s.awake), Color(.systemGray3))
+                        }
+                    }
                 }
-                .padding(12).background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
             }
             .buttonStyle(.plain).accessibilityIdentifier("data.sleep")
         }
     }
 
-    private var watch: some View {
-        let w = snapshot.watch
-        return section("Watch sensors") {
-            VStack(alignment: .leading, spacing: 8) {
-                LabeledContent("Last data from watch", value: w.lastReceived.map { ago($0, now: env.clock.now) } ?? "none yet")
-                LabeledContent("Accelerometer, 24 h", value: "\(min(100, w.accelMinutes24h * 100 / 1_440)) % of minutes")
-                if let f = w.latestFeature {
-                    LabeledContent("Latest movement") {
-                        Text([f.enmoMg.map { "\(Int($0)) mg" }, f.cadenceHz.flatMap { $0 > 0 ? "\(Int($0 * 60)) steps/min" : nil }]
-                            .compactMap { $0 }.joined(separator: " · ") + " · " + ago(Double(f.minuteID * 60), now: env.clock.now))
+    private func watch(_ w: DataSnapshot.Watch) -> some View {
+        CardSection(title: "Watch sensors", systemImage: "applewatch", tint: theme.tint) {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    LabeledContent("Last data from watch", value: w.lastReceived.map { ago($0, now: env.clock.now) } ?? "none yet")
+                    VStack(alignment: .leading, spacing: 4) {
+                        let pct = min(100, w.accelMinutes24h * 100 / 1_440)
+                        LabeledContent("Accelerometer, 24 h", value: "\(pct) % of minutes")
+                        ProgressView(value: Double(pct), total: 100).tint(theme.tint)
+                    }
+                    if let f = w.latestFeature {
+                        LabeledContent("Latest movement") {
+                            Text([f.enmoMg.map { "\(Int($0)) mg" }, f.cadenceHz.flatMap { $0 > 0 ? "\(Int($0 * 60)) steps/min" : nil }]
+                                .compactMap { $0 }.joined(separator: " · ") + " · " + ago(Double(f.minuteID * 60), now: env.clock.now))
+                        }
+                    }
+                    let snaps = ["gyro", "baro", "compass", "hr_session"].compactMap { k in
+                        w.sensors[k].map { "\(k.replacingOccurrences(of: "_session", with: "")) \($0)" }
+                    }
+                    if !snaps.isEmpty { LabeledContent("Snapshots, 24 h", value: snaps.joined(separator: " · ")) }
+                    Button { model.flushWatch(force: true) } label: {
+                        Label("Ask watch to send now", systemImage: "applewatch.radiowaves.left.and.right")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!env.watchLink.isReachable)
+                    .accessibilityIdentifier("data.flushWatch")
+                    if !env.watchLink.isReachable {
+                        Text("Open HealthBot on the watch to send now. Otherwise it sends about once an hour.")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                let snaps = ["gyro", "baro", "compass", "hr_session"].compactMap { k in w.sensors[k].map { "\(k.replacingOccurrences(of: "_session", with: "")) \($0)" } }
-                if !snaps.isEmpty { LabeledContent("Snapshots, 24 h", value: snaps.joined(separator: " · ")) }
-                Button {
-                    env.watchLink.requestFlush()
-                } label: {
-                    Label("Ask watch to send now", systemImage: "applewatch.radiowaves.left.and.right")
-                }
-                .disabled(!env.watchLink.isReachable)
-                .accessibilityIdentifier("data.flushWatch")
-                if !env.watchLink.isReachable {
-                    Text("Open Fengshui on the watch to send now. Otherwise it sends about once an hour.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                .font(.footnote)
             }
-            .font(.footnote)
-            .padding(12).background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("data.watch")
         }
     }
 
-    private var recent: some View {
-        section("Just received") {
-            VStack(spacing: 0) {
-                ForEach(Array(snapshot.recent.enumerated()), id: \.element.id) { i, r in
-                    if i > 0 { Divider() }
-                    HStack {
-                        Text(DataSnapshot.title(r.label)).lineLimit(1)
-                        Spacer()
-                        Text(r.value.map { "\(DataSnapshot.format($0, unit: r.unit ?? "")) \(r.unit ?? "")" }
-                             ?? (r.text ?? "").replacingOccurrences(of: "_", with: " "))
-                            .monospacedDigit()
-                        Text(ago(r.ts, now: env.clock.now)).foregroundStyle(.secondary).frame(width: 74, alignment: .trailing)
+    private func recent(_ rows: [DataSnapshot.Recent]) -> some View {
+        CardSection(title: "Just received", systemImage: "arrow.down.circle", tint: theme.tint) {
+            Card(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
+                        if i > 0 { Divider().padding(.leading, 52) }
+                        HStack(spacing: 12) {
+                            IconBadge(systemImage: DataSnapshot.icon(r.label), tint: theme.color(for: r.label), size: 28)
+                            Text(DataSnapshot.title(r.label)).lineLimit(1)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(r.value.map { "\(DataSnapshot.format($0, unit: r.unit ?? "")) \(r.unit ?? "")" }
+                                     ?? (r.text ?? "").replacingOccurrences(of: "_", with: " "))
+                                    .monospacedDigit()
+                                Text(ago(r.ts, now: env.clock.now)).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.footnote).padding(.horizontal, 12).padding(.vertical, 9)
                     }
-                    .font(.footnote).padding(.vertical, 7)
                 }
             }
-            .padding(.horizontal, 12).background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("data.recent")
         }
     }
 
-    private func section<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
-            content()
-        }
-    }
-
-    private func stat(_ title: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
-            Text(title).font(.caption2).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: Live updates
-
-    /// Redraws on every commit that touches the tables read by `DataSnapshot.fetch`.
-    private func observe() async {
-        let observation = ValueObservation.tracking { [env] db in
-            try DataSnapshot.fetch(db, now: env.clock.now, timeZone: env.timeZone)
-        }.removeDuplicates()
-        do {
-            for try await s in observation.values(in: env.db.writer) {
-                snapshot = s
-                loaded = true
-                updatedAt = Date()
+    private func stat(_ title: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(title).font(.caption2).foregroundStyle(.secondary)
             }
-        } catch {
-            env.log.add("data_view_error", "\(error)")
+            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
-
-    /// While on screen: pull the fast-changing HealthKit types every minute (observer queries
-    /// also fire on their own) and ask the watch for its latest file.
-    private func pollWhileVisible() async {
-        env.watchLink.requestFlush()
-        live = env.watchLink.live
-        while !Task.isCancelled {
-            try? await Task.sleep(for: Self.pollInterval)
-            if Task.isCancelled { break }
-            await syncLiveTypes()
-            tick += 1
-        }
-    }
-
-    private func pull() async {
-        env.watchLink.requestFlush()
-        await syncLiveTypes()
-        tick += 1
-    }
-
-    private func syncLiveTypes() async { await env.syncLiveTypes() }
 }
 
-struct Tile: View {
-    let title: String
-    let value: String
-    let unit: String
-    let caption: String
-    var series: [DataSnapshot.Point] = []
-    var tint: Color = .accentColor
+/// Last night's stages as one rounded bar: deep, core, REM, awake.
+struct SleepBar: View {
+    let sleep: DataSnapshot.Sleep
+    let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value).font(.title3.weight(.semibold)).monospacedDigit()
-                Text(unit).font(.caption).foregroundStyle(.secondary)
-            }
-            if series.count > 1 {
-                Chart(series, id: \.ts) { p in
-                    LineMark(x: .value("Time", Date(timeIntervalSince1970: p.ts)), y: .value("Value", p.value))
-                        .interpolationMethod(.monotone)
+        let parts: [(Double, Color)] = [(sleep.deep, tint), (sleep.core, tint.opacity(0.6)), (sleep.rem, tint.opacity(0.35)),
+                                        (sleep.awake, Color(.systemGray3))]
+        // Watches that only record "asleep" have no stages: show it as one block.
+        let staged = sleep.deep + sleep.core + sleep.rem
+        let shown = staged > 0 ? parts : [(sleep.asleep, tint.opacity(0.6)), (sleep.awake, Color(.systemGray3))]
+        let total = max(shown.map(\.0).reduce(0, +), 1)
+        GeometryReader { g in
+            HStack(spacing: 2) {
+                ForEach(Array(shown.enumerated()), id: \.offset) { _, p in
+                    if p.0 > 0 { Rectangle().fill(p.1).frame(width: max(2, (g.size.width - 6) * p.0 / total)) }
                 }
-                .chartXAxis(.hidden).chartYAxis(.hidden)
-                .chartYScale(domain: .automatic(includesZero: false))
-                .foregroundStyle(tint).frame(height: 22)
             }
-            Text(caption).font(.caption2).foregroundStyle(.tertiary)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+        .clipShape(.capsule)
+        .accessibilityHidden(true)
+    }
+}
+
+extension DataSnapshot {
+    static func icon(_ label: String) -> String {
+        let icons = ["heart_rate": "heart.fill", "resting_heart_rate": "heart.circle", "heart_rate_variability_sdnn": "waveform.path.ecg",
+                     "oxygen_saturation": "drop.fill", "respiratory_rate": "lungs.fill", "step_count": "figure.walk",
+                     "active_energy_burned": "flame.fill", "distance_walking_running": "map.fill", "apple_exercise_time": "figure.run",
+                     "flights_climbed": "figure.stairs", "sleep_analysis": "bed.double.fill", "workout": "dumbbell.fill"]
+        return icons[label] ?? "chart.xyaxis.line"
+    }
+}
+
+extension Theme {
+    /// One colour per data family, so a label looks the same on every screen.
+    func color(for label: String) -> Color {
+        if label.contains("heart") || label == "oxygen_saturation" || label == "respiratory_rate" { return heart }
+        if label.hasPrefix("sleep") || label.contains("mindful") { return sleep }
+        return activity
     }
 }
 
@@ -522,6 +594,7 @@ struct DataTypesView: View {
             .accessibilityIdentifier("data.type.\(r.label)")
         }
         .overlay { if loading { ProgressView() } else if rows.isEmpty { ContentUnavailableView("No data yet", systemImage: "tray") } }
+        .themedList()
         .searchable(text: $query)
         .navigationTitle("All data types")
         .task { await load() }
@@ -550,6 +623,7 @@ struct DataTypeDetailView: View {
 
     let env: AppEnvironment
     let label: String
+    @Environment(\.theme) private var theme
     @State private var detail = Detail()
 
     var body: some View {
@@ -566,7 +640,8 @@ struct DataTypeDetailView: View {
                         }
                     }
                     .chartYScale(domain: .automatic(includesZero: cumulative))
-                    .frame(height: 160)
+                    .foregroundStyle(theme.color(for: label))
+                    .frame(height: 180)
                     .accessibilityIdentifier("data.detail.chart")
                 }
             }
@@ -586,6 +661,7 @@ struct DataTypeDetailView: View {
                 if detail.samples.isEmpty { Text("No samples").foregroundStyle(.secondary) }
             }
         }
+        .themedList()
         .navigationTitle(DataSnapshot.title(label))
         .task { await observe() }
     }

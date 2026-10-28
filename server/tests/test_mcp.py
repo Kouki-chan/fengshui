@@ -54,7 +54,7 @@ def test_initialize_and_list_tools(mcp):
     init = rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                               "clientInfo": {"name": "test", "version": "1"}})
     assert init.status_code == 200, init.text
-    assert init.json()["result"]["serverInfo"]["name"] == "Fengshui"
+    assert init.json()["result"]["serverInfo"]["name"] == "HealthBot"
     tools = {t["name"]: t for t in rpc("tools/list").json()["result"]["tools"]}
     assert set(tools) == {"list_available_data", "get_series", "get_sleep_nights", "get_inferences", "get_visits",
                           "list_report_labels", "get_monitor_status"}

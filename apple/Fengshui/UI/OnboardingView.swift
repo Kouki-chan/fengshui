@@ -4,6 +4,7 @@ import SwiftUI
 /// insert recording preferences, places, sleep questions and notifications.
 struct OnboardingView: View {
     @Bindable var model: AppModel
+    @Environment(\.theme) private var theme
 
     var body: some View {
         NavigationStack {
@@ -19,33 +20,61 @@ struct OnboardingView: View {
                 }
             }
             .padding()
+            .themedBackground()
         }
     }
 
     private var welcome: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 22) {
             Spacer()
-            Text("Fengshui").font(.largeTitle.bold())
-            Text("Understands your activity and sleep from your iPhone and Apple Watch, and tells you when to start winding down.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+            HealthBotLogo(size: 112)
+            VStack(spacing: 8) {
+                Text("HealthBot").font(.largeTitle.bold())
+                Text("Understands your activity and sleep from your iPhone and Apple Watch, answers your questions, and tells you when to start winding down.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                feature("waveform.path.ecg", theme.heart, "Live vitals", "Heart rate, HRV, oxygen and breathing from your watch.")
+                feature("sparkles", theme.highlight, "Ask anything", "An AI agent that reads your processed data, never raw sensors.")
+                feature("doc.richtext.fill", theme.tint, "Reports for your doctor", "Shareable PDFs with charts and a summary.")
+                feature("lock.fill", theme.sleep, "Private", "Data stays on your iPhone and your own Mac.")
+            }
+            .padding(.top, 8)
             Spacer()
-            Button("Get started") { model.step = .health }
-                .buttonStyle(.borderedProminent)
+            primary("Get started") { model.step = .health }
                 .accessibilityIdentifier("onboarding.start")
         }
+    }
+
+    private func feature(_ icon: String, _ tint: Color, _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            IconBadge(systemImage: icon, tint: tint, size: 36)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(text).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func primary(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .controlSize(.large)
     }
 
     private var notificationsStep: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "bell.badge").font(.system(size: 56)).foregroundStyle(.orange)
+            IconBadge(systemImage: "bell.badge.fill", tint: theme.highlight, size: 88)
             Text("Wind-down reminders").font(.title.bold())
-            Text("Fengshui reminds you when it's time to start winding down, and again when you get home late.")
+            Text("HealthBot reminds you when it's time to start winding down, and again when you get home late.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary)
             Spacer()
-            Button("Allow notifications") { Task { await model.notificationsDone(requestPermission: true) } }
-                .buttonStyle(.borderedProminent)
+            primary("Allow notifications") { Task { await model.notificationsDone(requestPermission: true) } }
                 .accessibilityIdentifier("onboarding.notifications")
             Button("Not now") { Task { await model.notificationsDone(requestPermission: false) } }
         }
@@ -54,9 +83,9 @@ struct OnboardingView: View {
     private var health: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "heart.text.square").font(.system(size: 56)).foregroundStyle(.pink)
+            IconBadge(systemImage: "heart.text.square.fill", tint: theme.heart, size: 88)
             Text("Health data").font(.title.bold())
-            Text("Fengshui reads all your Health data once (this can take a few minutes), then keeps up with new samples. Nothing leaves your iPhone except to your own Mac.")
+            Text("HealthBot reads all your Health data once (this can take a few minutes), then keeps up with new samples. Nothing leaves your iPhone except to your own Mac.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -64,10 +93,9 @@ struct OnboardingView: View {
                 Text("Health permission failed: \(err)").font(.caption).foregroundStyle(.red)
                     .accessibilityIdentifier("onboarding.healthError")
             }
-            Button(model.healthAuthError == nil ? "Allow Health access" : "Try again") {
+            primary(model.healthAuthError == nil ? "Allow Health access" : "Try again") {
                 Task { await model.requestHealth() }
             }
-            .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("onboarding.health")
         }
     }
@@ -75,10 +103,12 @@ struct OnboardingView: View {
 
 struct BackfillView: View {
     @Bindable var model: AppModel
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
+            HealthBotLogo(size: 72)
             Text("Reading your Health history").font(.title2.bold())
             if let p = model.backfill {
                 ProgressView(value: Double(p.typesDone), total: Double(max(p.typesTotal, 1)))
@@ -102,8 +132,12 @@ struct BackfillView: View {
                 Button("Retry") { Task { await model.runBackfill() } }
             }
             Spacer()
-            Button("Continue") { model.finishOnboarding() }
+            Button { model.finishOnboarding() } label: {
+                Text("Continue").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+            }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
                 .disabled(!model.backfillComplete)
                 .accessibilityIdentifier("backfill.continue")
         }
@@ -133,7 +167,7 @@ struct SleepQuestionsView: View {
                 DatePicker("Free-day wake-up", selection: $freeday, displayedComponents: .hourAndMinute)
                 DatePicker("Usual bedtime", selection: $bedtime, displayedComponents: .hourAndMinute)
             } header: { Text("Your usual sleep") } footer: {
-                Text("Used for the first few nights, until Fengshui has learned from your sleep data.")
+                Text("Used for the first few nights, until HealthBot has learned from your sleep data.")
             }
             Button("Continue") {
                 model.sleepDone(workdayWake: Self.hhmm(workday), freedayWake: Self.hhmm(freeday), bedtime: Self.hhmm(bedtime))
@@ -141,6 +175,7 @@ struct SleepQuestionsView: View {
             .frame(maxWidth: .infinity)
             .accessibilityIdentifier("sleep.continue")
         }
+        .themedList()
         .navigationTitle("Sleep")
     }
 }

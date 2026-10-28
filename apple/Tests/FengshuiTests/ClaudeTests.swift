@@ -186,7 +186,7 @@ final class ClaudeTests: XCTestCase {
         XCTAssertEqual((body["tools"] as! [[String: Any]]).compactMap { $0["name"] as? String }.suffix(3),
                        ["list_report_labels", "propose_report_labels", "create_report"])
         XCTAssertEqual((body["tools"] as! [Any]).count, 10)
-        XCTAssertTrue(((body["system"] as! [[String: Any]])[0]["text"] as! String).hasPrefix("You are Fengshui"))
+        XCTAssertTrue(((body["system"] as! [[String: Any]])[0]["text"] as! String).hasPrefix("You are HealthBot"))
         // Haiku: no server-side fallback.
         let mock2 = MockTransport()
         mock2.script = [{ _, _ in MockTransport.final("ok") }]

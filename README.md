@@ -1,4 +1,6 @@
-# Fengshui
+# HealthBot
+
+*(Formerly Fengshui. Code, targets and bundle IDs keep the original name; see DECISIONS D-23.)*
 
 A personal proof-of-concept iPhone + Apple Watch app with an embedded Python inference engine and a server that runs on your Mac. It reads your Health data, iPhone motion and visits to your places, plus passive watch sensors. From those it detects activity, plans your evening wind-down (with a reminder at the right time), and lets Claude answer questions about your own data, using processed data only, never raw watch data.
 

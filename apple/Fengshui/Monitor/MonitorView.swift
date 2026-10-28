@@ -19,7 +19,7 @@ struct MonitorView: View {
             if env.server.baseURL == nil {
                 Section {
                     NavigationLink("Connect to your Mac server first") { ServerSettingsView(env: env) }
-                } footer: { Text("The monitoring agent runs on the Fengshui server on your Mac.") }
+                } footer: { Text("The monitoring agent runs on the HealthBot server on your Mac.") }
             }
             if let s = session, s.isActive {
                 activeSection(s)
@@ -73,7 +73,7 @@ struct MonitorView: View {
         } header: { Text("Monitoring now") } footer: {
             Text(s.mode == "push"
                  ? "The server asks this iPhone for readings by push. iOS may delay or skip some requests; each batch covers everything since the last one."
-                 : "Pull mode: readings are sent while Fengshui is open and when iOS gives it background time. Keep the app open for checks at the exact rate.")
+                 : "Pull mode: readings are sent while HealthBot is open and when iOS gives it background time. Keep the app open for checks at the exact rate.")
         }
     }
 

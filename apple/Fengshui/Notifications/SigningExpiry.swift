@@ -29,8 +29,8 @@ enum SigningExpiry {
         await center.removePending([identifier])
         let fire = expiry.addingTimeInterval(-86400)
         guard fire > now else { return }
-        try? await center.add(LocalNotification(identifier: identifier, title: "Fengshui needs reinstalling tomorrow",
-                                                body: "The free developer signing expires in 1 day. Open Xcode and run Fengshui on your iPhone again — your data is kept.",
+        try? await center.add(LocalNotification(identifier: identifier, title: "HealthBot needs reinstalling tomorrow",
+                                                body: "The free developer signing expires in 1 day. Open Xcode and run HealthBot on your iPhone again — your data is kept.",
                                                 fireDate: fire), timeZone: timeZone)
     }
 }

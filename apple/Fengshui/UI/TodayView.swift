@@ -2,49 +2,170 @@ import GRDB
 import SwiftUI
 
 /// Spec §15 Today: tonight's wind-down plan (with reasons), today's activity timeline, quick stats.
+/// Reads off the main thread and only redraws when the underlying rows changed, so switching
+/// back to this tab is instant.
 struct TodayView: View {
+    /// The raw JSON rows; compared before parsing so an unchanged reload costs nothing.
+    struct Rows: Equatable, Sendable {
+        var plan: String?
+        var bouts: [String] = []
+        var day: String?
+    }
+
     let env: AppEnvironment
+    let ui: UIState
+    @Environment(\.theme) private var theme
+    @State private var rows: Rows?
     @State private var plan: [String: Any] = [:]
     @State private var bouts: [[String: Any]] = []
     @State private var day: [String: Any] = [:]
+    @State private var showReasons = false
+
+    private let grid = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
-        List {
-            Section("Tonight") {
-                if let start = plan["wind_down_start"] as? String {
-                    LabeledContent("Start winding down", value: start).font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                Text(env.clock.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                    .font(.subheadline.weight(.medium)).foregroundStyle(.secondary).padding(.leading, 4)
+                tonight
+                if let steps = day["steps"] as? Int { stats(steps) }
+                if !bouts.isEmpty { timeline }
+                askShortcuts
+            }
+            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 28)
+        }
+        .themedBackground()
+        .navigationTitle("Today")
+        .onReceive(Foundation.NotificationCenter.default.publisher(for: .engineDidRun)) { _ in Task { await reload() } }
+        .refreshable { await env.engine.run(EngineRunner.lightTasks, trigger: "pull_to_refresh"); await reload() }
+        .task { await reload() }
+    }
+
+    // MARK: Sections
+
+    @ViewBuilder private var tonight: some View {
+        if let start = plan["wind_down_start"] as? String {
+            VStack(alignment: .leading, spacing: 14) {
+                Label("Tonight", systemImage: "moon.stars.fill").font(.footnote.weight(.semibold)).textCase(.uppercase)
+                    .opacity(0.85)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Start winding down").font(.headline)
+                    Text(start).font(.system(size: 52, weight: .bold, design: .rounded)).monospacedDigit()
                         .accessibilityIdentifier("today.windDownStart")
-                    LabeledContent("In bed by", value: plan["target_in_bed"] as? String ?? "–")
-                    LabeledContent("Asleep around", value: plan["target_sleep_onset"] as? String ?? "–")
-                    LabeledContent("Expected wake", value: "\(plan["predicted_wake"] as? String ?? "–") (\(plan["day_type_tomorrow"] as? String ?? ""))")
-                    ForEach(explanations, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
-                } else {
-                    Text("No plan yet — it appears once Fengshui has run.").foregroundStyle(.secondary)
+                }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { chips }
+                    VStack(alignment: .leading, spacing: 8) { chips }
+                }
+                if !explanations.isEmpty {
+                    Button { withAnimation(.snappy) { showReasons.toggle() } } label: {
+                        HStack {
+                            Text("Why this time?")
+                            Image(systemName: "chevron.down").rotationEffect(.degrees(showReasons ? 180 : 0))
+                        }
+                        .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    if showReasons {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(explanations, id: \.self) { Label($0, systemImage: "checkmark.circle").font(.caption) }
+                        }
+                        .opacity(0.9)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
             }
-            Section("Today") {
-                if let steps = day["steps"] as? Int {
-                    LabeledContent("Steps", value: "\(steps)")
-                    LabeledContent("Moderate + vigorous", value: "\(day["mvpa_minutes"] as? Int ?? 0) min")
-                    LabeledContent("Longest sitting", value: "\(day["longest_sedentary_min"] as? Int ?? 0) min")
+            .foregroundStyle(theme.onHero)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(theme.heroGradient, in: .rect(cornerRadius: 24, style: .continuous))
+            .shadow(color: theme.heroEnd.opacity(0.25), radius: 14, y: 6)
+        } else {
+            Card {
+                HStack(spacing: 14) {
+                    IconBadge(systemImage: "moon.stars.fill", tint: theme.sleep, size: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Tonight").font(.headline)
+                        Text("No plan yet. It appears once HealthBot has run.").font(.subheadline).foregroundStyle(.secondary)
+                    }
                 }
-                ForEach(Array(bouts.enumerated()), id: \.offset) { _, b in
-                    HStack {
-                        Text(time(b["start"])).monospacedDigit().foregroundStyle(.secondary).frame(width: 50, alignment: .leading)
-                        VStack(alignment: .leading) {
-                            Text(title(b)).font(.subheadline)
-                            Text("\(b["minutes"] as? Int ?? 0) min · \(b["place"] as? String ?? "")")
-                                .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var chips: some View {
+        let glass = Color.white.opacity(0.18)
+        Chip(text: "In bed \(plan["target_in_bed"] as? String ?? "–")", systemImage: "bed.double.fill",
+             foreground: theme.onHero, background: glass)
+        Chip(text: "Asleep \(plan["target_sleep_onset"] as? String ?? "–")", systemImage: "zzz",
+             foreground: theme.onHero, background: glass)
+        Chip(text: "Wake \(plan["predicted_wake"] as? String ?? "–")\((plan["day_type_tomorrow"] as? String).map { " · \($0)" } ?? "")",
+             systemImage: "sunrise.fill", foreground: theme.onHero, background: glass)
+    }
+
+    private func stats(_ steps: Int) -> some View {
+        CardSection(title: "Today", systemImage: "figure.walk", tint: theme.activity) {
+            LazyVGrid(columns: grid, spacing: 10) {
+                StatTile(title: "Steps", value: steps.formatted(), unit: "", caption: "since midnight",
+                         systemImage: "figure.walk", tint: theme.activity)
+                StatTile(title: "Moderate + vigorous", value: "\(day["mvpa_minutes"] as? Int ?? 0)", unit: "min",
+                         caption: "active minutes", systemImage: "flame.fill", tint: theme.heart)
+                StatTile(title: "Longest sitting", value: "\(day["longest_sedentary_min"] as? Int ?? 0)", unit: "min",
+                         caption: "in one stretch", systemImage: "chair.lounge.fill", tint: theme.sleep)
+            }
+        }
+    }
+
+    private var timeline: some View {
+        CardSection(title: "Activity", systemImage: "clock", tint: theme.tint) {
+            Card {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(bouts.enumerated()), id: \.offset) { i, b in
+                        HStack(alignment: .top, spacing: 12) {
+                            Text(time(b["start"])).font(.caption.weight(.medium)).monospacedDigit().foregroundStyle(.secondary)
+                                .frame(width: 44, alignment: .leading)
+                            VStack(spacing: 0) {
+                                Circle().fill(theme.activity).frame(width: 10, height: 10).padding(.top, 3)
+                                if i < bouts.count - 1 { Rectangle().fill(theme.activity.opacity(0.25)).frame(width: 2) }
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(title(b)).font(.subheadline.weight(.medium))
+                                Text("\(b["minutes"] as? Int ?? 0) min\((b["place"] as? String).flatMap { $0.isEmpty ? nil : " · \($0)" } ?? "")")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.bottom, 14)
+                            Spacer(minLength: 0)
                         }
                     }
                 }
             }
         }
-        .navigationTitle("Today")
-        .onReceive(Foundation.NotificationCenter.default.publisher(for: .engineDidRun)) { _ in reload() }
-        .refreshable { await env.engine.run(EngineRunner.lightTasks, trigger: "pull_to_refresh"); reload() }
-        .task { reload() }
     }
+
+    private var askShortcuts: some View {
+        CardSection(title: "Ask HealthBot", systemImage: "sparkles", tint: theme.highlight) {
+            VStack(spacing: 10) {
+                ForEach(["How did I sleep last night?", "How active was I today?"], id: \.self) { q in
+                    Button {
+                        ui.ask.send(q)
+                        ui.tab = .ask
+                    } label: {
+                        Card {
+                            HStack {
+                                Text(q).font(.subheadline.weight(.medium)).foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "arrow.up.circle.fill").font(.title3).foregroundStyle(theme.tint)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: Data
 
     private var explanations: [String] {
         var out = [String]()
@@ -70,29 +191,37 @@ struct TodayView: View {
         return String(t.prefix(5))
     }
 
-    private func reload() {
-        let now = env.clock.now.timeIntervalSince1970
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = env.timeZone
-        let dayStart = cal.startOfDay(for: env.clock.now).timeIntervalSince1970
-        try? env.db.writer.read { db in
-            if let s = try String.fetchOne(db, sql: """
-                SELECT value_json FROM inferences WHERE kind = 'wind_down_plan' AND superseded_by IS NULL
-                ORDER BY json_extract(value_json, '$.night_of') DESC, id DESC LIMIT 1
-                """) { plan = Self.obj(s) }
-            bouts = try String.fetchAll(db, sql: """
-                SELECT value_json FROM inferences WHERE kind = 'activity_bout' AND superseded_by IS NULL
-                AND minute_end > ? AND minute_start < ? ORDER BY minute_start DESC
-                """, arguments: [Int(dayStart / 60), Int(now / 60)]).map(Self.obj)
-                .filter { ($0["label"] as? String) != "unknown" }
-            if let s = try String.fetchOne(db, sql: """
-                SELECT value_json FROM inferences WHERE kind = 'activity_day' AND superseded_by IS NULL
-                AND minute_start = ? ORDER BY id DESC LIMIT 1
-                """, arguments: [Int(dayStart / 60)]) { day = Self.obj(s) }
-        }
+    private func reload() async {
+        let env = env
+        guard let r = try? await env.db.writer.read({ db in try Self.fetch(db, now: env.clock.now, timeZone: env.timeZone) }),
+              r != rows else { return }
+        rows = r
+        plan = r.plan.map(Self.obj) ?? [:]
+        bouts = r.bouts.map(Self.obj).filter { ($0["label"] as? String) != "unknown" }
+        day = r.day.map(Self.obj) ?? [:]
     }
 
-    static func obj(_ s: String) -> [String: Any] {
+    nonisolated static func fetch(_ db: Database, now: Date, timeZone: TimeZone) throws -> Rows {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        let dayStart = cal.startOfDay(for: now).timeIntervalSince1970
+        var r = Rows()
+        r.plan = try String.fetchOne(db, sql: """
+            SELECT value_json FROM inferences WHERE kind = 'wind_down_plan' AND superseded_by IS NULL
+            ORDER BY json_extract(value_json, '$.night_of') DESC, id DESC LIMIT 1
+            """)
+        r.bouts = try String.fetchAll(db, sql: """
+            SELECT value_json FROM inferences WHERE kind = 'activity_bout' AND superseded_by IS NULL
+            AND minute_end > ? AND minute_start < ? ORDER BY minute_start DESC
+            """, arguments: [Int(dayStart / 60), Int(now.timeIntervalSince1970 / 60)])
+        r.day = try String.fetchOne(db, sql: """
+            SELECT value_json FROM inferences WHERE kind = 'activity_day' AND superseded_by IS NULL
+            AND minute_start = ? ORDER BY id DESC LIMIT 1
+            """, arguments: [Int(dayStart / 60)])
+        return r
+    }
+
+    nonisolated static func obj(_ s: String) -> [String: Any] {
         (try? JSONSerialization.jsonObject(with: Data(s.utf8))) as? [String: Any] ?? [:]
     }
 }
@@ -115,7 +244,7 @@ struct WindDownSettingsView: View {
             } footer: { Text("A one-off: replaces the predicted wake time for tomorrow only.") }
             Section {
                 Stepper("Wind-down length \(Int(length)) min", value: $length, in: 30...90, step: 15)
-            } footer: { Text("Fengshui also adjusts this from how long you take to fall asleep.") }
+            } footer: { Text("HealthBot also adjusts this from how long you take to fall asleep.") }
             Button("Save") { Task { await save() } }.accessibilityIdentifier("wd.save")
         }
         .navigationTitle("Wind-down")

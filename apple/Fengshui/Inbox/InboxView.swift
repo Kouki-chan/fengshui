@@ -4,10 +4,13 @@ import SwiftUI
 /// The bell at the top right of every tab, with the unread count.
 struct InboxButton: View {
     let env: AppEnvironment
-    @State private var unread = 0
+    /// One shared observation in UIState feeds every tab's bell.
+    @Environment(UIState.self) private var ui: UIState?
+    @Environment(\.theme) private var theme
     @State private var open = false
 
     var body: some View {
+        let unread = ui?.unread ?? 0
         Button { open = true } label: {
             Image(systemName: unread > 0 ? "bell.badge" : "bell")
                 .overlay(alignment: .topTrailing) {
@@ -24,10 +27,6 @@ struct InboxButton: View {
         .accessibilityLabel(unread > 0 ? "Notifications, \(unread) unread" : "Notifications")
         .accessibilityIdentifier("inbox.button")
         .sheet(isPresented: $open) { NavigationStack { InboxView(env: env) } }
-        .task {
-            let obs = ValueObservation.tracking { try InboxStore.unread($0) }.removeDuplicates()
-            do { for try await n in obs.values(in: env.db.writer) { unread = n } } catch {}
-        }
     }
 }
 
@@ -41,6 +40,7 @@ extension View {
 struct InboxView: View {
     let env: AppEnvironment
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     @State private var messages: [InboxMessage] = []
     @State private var selection = Set<Int64>()
     @State private var editMode: EditMode = .inactive
@@ -72,6 +72,7 @@ struct InboxView: View {
             }
         }
         .environment(\.editMode, $editMode)
+        .themedList()
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -131,8 +132,8 @@ struct InboxView: View {
 
     private func row(_ m: InboxMessage) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Circle().fill(m.isRead ? .clear : .blue).frame(width: 8, height: 8).padding(.top, 6)
-            Image(systemName: Self.icon(m.kind)).foregroundStyle(m.kind == "monitor" ? .red : .secondary).frame(width: 20)
+            Circle().fill(m.isRead ? .clear : theme.highlight).frame(width: 8, height: 8).padding(.top, 11)
+            IconBadge(systemImage: Self.icon(m.kind), tint: color(m.kind), size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(m.title).font(.subheadline.weight(m.isRead ? .regular : .semibold)).lineLimit(1)
@@ -141,6 +142,16 @@ struct InboxView: View {
                 }
                 Text(m.body).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
+        }
+    }
+
+    private func color(_ kind: String) -> Color {
+        switch kind {
+        case "monitor": theme.heart
+        case "wind_down": theme.sleep
+        case "report": theme.activity
+        case "answer": theme.tint
+        default: .gray
         }
     }
 
@@ -176,6 +187,7 @@ struct InboxDetailView: View {
                 Section { Text("This message is deleted when you close it.").font(.caption).foregroundStyle(.secondary) }
             }
         }
+        .themedList()
         .navigationTitle(InboxView.title(message.kind))
         .navigationBarTitleDisplayMode(.inline)
         // Read when the user leaves the message, so "delete after reading" doesn't pull it away mid-read.

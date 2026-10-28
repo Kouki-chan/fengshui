@@ -25,7 +25,7 @@ LABELS = ["heart_rate", "resting_heart_rate", "heart_rate_variability_sdnn", "ox
           "respiratory_rate", "step_count", "high_heart_rate_event", "low_heart_rate_event",
           "irregular_heart_rhythm_event"]
 
-SYSTEM = """You are the monitoring agent of Fengshui, a personal health app. During a monitoring session you \
+SYSTEM = """You are the monitoring agent of HealthBot, a personal health app. During a monitoring session you \
 are called only when a fixed rule has flagged one of the user's readings. Look at the flags and, through the \
 tools, at the recent readings and the user's own baselines. Then decide whether the user should get a push \
 notification, and finish by calling exactly one of send_alert or no_alert.
@@ -195,7 +195,7 @@ class ManagedMonitorAgent:
         ctx = {"flags": flags, "session": session, "samples": samples, "baselines": baselines, "now": now}
         s = self.client.beta.sessions.create(
             agent={"type": "agent_with_overrides", "id": self.agent_id, "tools": self._session_tools()},
-            environment_id=self._environment(), title=f"Fengshui monitor check {_iso(now)}")
+            environment_id=self._environment(), title=f"HealthBot monitor check {_iso(now)}")
         self.last_session_id = s.id
         self.last_calls = []
         prompt = (f"{SYSTEM}\n\nNow: {_iso(now)}. A rule flagged {len(flags)} finding(s) in this check. Use get_flags, "

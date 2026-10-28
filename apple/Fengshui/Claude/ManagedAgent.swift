@@ -217,7 +217,7 @@ actor ManagedAssistant: Assistant {
             }
             return config.chatSessionID
         }
-        let id = try await newSession(title: "Fengshui chat")
+        let id = try await newSession(title: "HealthBot chat")
         log.add("managed_session", "chat session replaced")
         config.chatSessionID = id
         config.save(db)
@@ -256,7 +256,7 @@ actor ManagedAssistant: Assistant {
 
     private func run(_ question: String, now: Date, box: Box) async throws {
         if config.agentName == nil, let agent = try? await json("GET", "v1/agents/\(config.agentID)") { rememberName(agent) }
-        let sid = chat ? try await chatSession() : try await newSession(title: "Fengshui: \(question.prefix(60))")
+        let sid = chat ? try await chatSession() : try await newSession(title: "HealthBot: \(question.prefix(60))")
         box.answer.answeredBy = answeredBy(sid)
         // Stream first, then send: events before the stream opens would arrive as one late batch.
         let stream = try await transport.events(sid)

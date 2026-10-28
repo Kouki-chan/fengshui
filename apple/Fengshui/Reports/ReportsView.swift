@@ -9,6 +9,9 @@ struct ReportsView: View {
     enum Period: String, CaseIterable { case day = "Day", range = "Range" }
 
     let env: AppEnvironment
+    @Environment(UIState.self) private var ui: UIState?
+    @Environment(\.theme) private var theme
+    @State private var started = false
     @State private var period: Period = .range
     @State private var day = Date()
     @State private var start = Date().addingTimeInterval(-29 * 86_400)
@@ -27,7 +30,8 @@ struct ReportsView: View {
     @State private var filterEnd = Date()
     @State private var opened: ReportRecord?
 
-    private var hasKey: Bool { env.secrets.get(SecretKey.anthropicKey).map { !$0.isEmpty } ?? false }
+    /// Cached in UIState: a Keychain read on every redraw made this tab stutter.
+    private var hasKey: Bool { ui?.hasKey ?? false }
     private var startDate: String { ReportData.dayString(period == .day ? day : start, env.timeZone) }
     private var endDate: String { ReportData.dayString(period == .day ? day : max(start, end), env.timeZone) }
 
@@ -43,22 +47,28 @@ struct ReportsView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 ForEach(shown) { r in
-                    NavigationLink { ReportDetailView(env: env, report: r) } label: { ReportRow(report: r, tz: env.timeZone) }
+                    NavigationLink { ReportDetailView(env: env, report: r) } label: { ReportRow(report: r, tz: env.timeZone, theme: theme) }
                         .accessibilityIdentifier("report.row.\(r.id)")
                 }
                 .onDelete { idx in
                     let ids = idx.map { shown[$0].id }
                     Task { await env.reports.delete(ids) }
                 }
-            } header: { Text("Saved reports (\(reports.filter(filter.matches).count))") }
+            } header: { SectionHeader(title: "Saved reports (\(reports.filter(filter.matches).count))", systemImage: "tray.full.fill") }
         }
+        .themedList()
+        .keyboardDoneButton()
         .navigationTitle("Reports")
         .navigationDestination(item: $opened) { ReportDetailView(env: env, report: $0) }
-        .task(id: "\(startDate)|\(endDate)") { loadAvailable() }
+        .task(id: "\(startDate)|\(endDate)") { await loadAvailable() }
         .task {
-            let now = env.clock.now
-            day = now; end = now; start = now.addingTimeInterval(-29 * 86_400)
-            filterEnd = now; filterStart = now.addingTimeInterval(-6 * 86_400)
+            // Once per app run: coming back to the tab keeps the dates the user picked.
+            if !started {
+                started = true
+                let now = env.clock.now
+                day = now; end = now; start = now.addingTimeInterval(-29 * 86_400)
+                filterEnd = now; filterStart = now.addingTimeInterval(-6 * 86_400)
+            }
             let obs = ValueObservation.tracking { try ReportStore.fetchAll($0) }.removeDuplicates()
             do { for try await r in obs.values(in: env.db.writer) { reports = r } } catch {}
         }
@@ -97,6 +107,7 @@ struct ReportsView: View {
             }
             .accessibilityIdentifier("report.labels")
             Button {
+                hideKeyboard()
                 Task { await suggest() }
             } label: {
                 Label("Let AI choose the data", systemImage: "sparkles")
@@ -105,19 +116,24 @@ struct ReportsView: View {
             .accessibilityIdentifier("report.suggest")
             Toggle("AI-written summary", isOn: $aiSummary).disabled(!hasKey)
             Button {
+                hideKeyboard()
                 Task { await create() }
             } label: {
                 HStack {
-                    Label("Create PDF report", systemImage: "doc.badge.plus")
-                    if busy != nil { Spacer(); ProgressView() }
+                    Label("Create PDF report", systemImage: "doc.badge.plus").font(.body.weight(.semibold))
+                    if busy != nil { Spacer(); ProgressView().tint(.white) }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
             }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.roundedRectangle(radius: 14))
             .disabled(busy != nil || selected.intersection(available.map(\.label)).isEmpty)
             .accessibilityIdentifier("report.create")
             if let busy { Text(busy).font(.caption).foregroundStyle(.secondary) }
             if let status { Text(status).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("report.status") }
         } header: {
-            Text("New report")
+            SectionHeader(title: "New report", systemImage: "doc.badge.plus")
         } footer: {
             Text(hasKey ? "The AI sees processed data through tools only, never raw watch data. Review its summary before sharing."
                         : "Add an Anthropic API key in Settings → Claude for AI label choice and summaries; without it the report has data only.")
@@ -152,7 +168,7 @@ struct ReportsView: View {
             if filter.isActive {
                 Button("Clear filters", role: .destructive) { filter = ReportFilter() }
             }
-        } header: { Text("Filter saved reports") }
+        } header: { SectionHeader(title: "Filter saved reports", systemImage: "line.3.horizontal.decrease.circle") }
     }
 
     private func syncFilterDates() {
@@ -162,8 +178,8 @@ struct ReportsView: View {
 
     // MARK: Actions
 
-    private func loadAvailable() {
-        available = env.reports.available(start: startDate, end: endDate)
+    private func loadAvailable() async {
+        available = await env.reports.availableAsync(start: startDate, end: endDate)
         let present = Set(available.map(\.label))
         if selected.isEmpty || selected.isDisjoint(with: present) {
             // Sensible default before the AI or the user chooses: the core vitals, sleep and activity present.
@@ -226,19 +242,21 @@ struct ReportsView: View {
 struct ReportRow: View {
     let report: ReportRecord
     let tz: TimeZone
+    var theme: Theme = .default
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Image(systemName: report.kind == "question" ? "bubble.left.and.text.bubble.right" : "doc.richtext")
-                    .foregroundStyle(.secondary)
-                Text(report.title).font(.subheadline).lineLimit(2)
+        HStack(alignment: .top, spacing: 12) {
+            IconBadge(systemImage: report.kind == "question" ? "bubble.left.and.text.bubble.right.fill" : "doc.richtext.fill",
+                      tint: report.kind == "question" ? theme.highlight : theme.tint, size: 34)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(report.title).font(.subheadline.weight(.medium)).lineLimit(2)
+                Text("\(Fmt.period(report.startDate, report.endDate, tz)) · \(report.labels.count) data types · \(report.pages) p")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Text(Date(timeIntervalSince1970: report.createdAt).formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2).foregroundStyle(.tertiary)
             }
-            Text("\(Fmt.period(report.startDate, report.endDate, tz)) · \(report.labels.count) data types · \(report.pages) p")
-                .font(.caption2).foregroundStyle(.secondary)
-            Text(Date(timeIntervalSince1970: report.createdAt).formatted(date: .abbreviated, time: .shortened))
-                .font(.caption2).foregroundStyle(.tertiary)
         }
+        .padding(.vertical, 2)
     }
 }
 
@@ -280,6 +298,7 @@ struct ReportLabelPicker: View {
             }
             if available.isEmpty { Text("No data in this period.").foregroundStyle(.secondary) }
         }
+        .themedList()
         .searchable(text: $query)
         .navigationTitle("Data to include")
     }
@@ -298,6 +317,7 @@ struct ReportLabelFilter: View {
             }
             if labels.isEmpty { Text("No saved reports yet.").foregroundStyle(.secondary) }
         }
+        .themedList()
         .navigationTitle("Filter by data")
     }
 }

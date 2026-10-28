@@ -32,7 +32,7 @@ VITALS = {"heart_rate", "resting_heart_rate", "walking_heart_rate_average", "hea
           "blood_glucose"}
 BODY = {"body_mass", "body_mass_index", "height", "body_fat_percentage", "lean_body_mass", "waist_circumference"}
 
-INSTRUCTIONS = """Fengshui: one person's own health, activity, sleep and context data from their Apple Watch, \
+INSTRUCTIONS = """HealthBot: one person's own health, activity, sleep and context data from their Apple Watch, \
 iPhone and Apple Health, as last synced to their Mac. Processed data and engine inferences only, never raw sensor \
 data. Dates are local (YYYY-MM-DD, inclusive). Call list_available_data first when unsure what exists. Values come \
 from consumer devices and can be inaccurate; don't diagnose."""
@@ -219,7 +219,7 @@ class Data:
 
 def build(db_path: str, tz: str | None = None) -> tuple[MCPServer, Data]:
     data = Data(db_path, tz)
-    mcp = MCPServer("Fengshui", title="Fengshui health data", instructions=INSTRUCTIONS, version="0.1")
+    mcp = MCPServer("HealthBot", title="HealthBot health data", instructions=INSTRUCTIONS, version="0.1")
     read_only = {"readOnlyHint": True, "openWorldHint": False}
 
     @mcp.tool(annotations=read_only)

@@ -12,6 +12,7 @@ final class AppModel {
     }
 
     let env: AppEnvironment
+    let ui: UIState
     var onboardingDone: Bool
     var step: OnboardingStep = .welcome
     var backfill: HealthSync.Progress?
@@ -20,6 +21,7 @@ final class AppModel {
 
     init(env: AppEnvironment) {
         self.env = env
+        ui = UIState(env: env)
         onboardingDone = (try? env.db.preference("onboarding_done", as: Bool.self)) ?? false
     }
 

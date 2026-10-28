@@ -1,4 +1,4 @@
-# XcodeGen spec — the .xcodeproj is generated from this file; never hand-edit it.
+# XcodeGen spec for HealthBot (targets keep their original Fengshui names, DECISIONS D-23) — the .xcodeproj is generated from this file; never hand-edit it.
 # Regenerate: scripts/bootstrap.sh  (or .tools/xcodegen/bin/xcodegen generate in apple/)
 name: Fengshui
 options:
@@ -42,6 +42,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui
         PRODUCT_NAME: Fengshui
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_BRIDGING_HEADER: Fengshui/Python/Fengshui-Bridging-Header.h
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
@@ -68,7 +69,7 @@ targets:
     info:
       path: Fengshui/Info.plist
       properties:
-        CFBundleDisplayName: Fengshui
+        CFBundleDisplayName: HealthBot
         # Owner's Managed Agent (DECISIONS D-22): values come from the gitignored Local.xcconfig.
         FengshuiAgentID: $(FENGSHUI_AGENT_ID)
         FengshuiAgentSessionID: $(FENGSHUI_AGENT_SESSION_ID)
@@ -80,12 +81,12 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - com.chevin.fengshui.refresh
           - com.chevin.fengshui.processing
-        NSHealthShareUsageDescription: Fengshui reads your Health data to detect activity and plan your evening wind-down. Data stays on your iPhone and your own Mac.
-        NSHealthUpdateUsageDescription: Fengshui saves the recording sessions you start on your Apple Watch as workouts.
-        NSLocationAlwaysAndWhenInUseUsageDescription: Fengshui notes when you arrive at or leave your saved places (like Home and Work) to plan your evening. It never tracks a continuous route.
-        NSLocationWhenInUseUsageDescription: Fengshui uses your location to set your saved places.
-        NSMotionUsageDescription: Fengshui reads your iPhone's motion activity (walking, driving…) to label your day.
-        NSLocalNetworkUsageDescription: Fengshui syncs with the Fengshui server on your own Mac over your home network.
+        NSHealthShareUsageDescription: HealthBot reads your Health data to detect activity and plan your evening wind-down. Data stays on your iPhone and your own Mac.
+        NSHealthUpdateUsageDescription: HealthBot saves the recording sessions you start on your Apple Watch as workouts.
+        NSLocationAlwaysAndWhenInUseUsageDescription: HealthBot notes when you arrive at or leave your saved places (like Home and Work) to plan your evening. It never tracks a continuous route.
+        NSLocationWhenInUseUsageDescription: HealthBot uses your location to set your saved places.
+        NSMotionUsageDescription: HealthBot reads your iPhone's motion activity (walking, driving…) to label your day.
+        NSLocalNetworkUsageDescription: HealthBot syncs with the HealthBot server on your own Mac over your home network.
         NSBonjourServices: [_fengshui._tcp]
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
@@ -103,6 +104,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chevin.fengshui.watchkitapp
         PRODUCT_NAME: FengshuiWatch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
     entitlements:
@@ -114,14 +116,14 @@ targets:
     info:
       path: FengshuiWatch/Info.plist
       properties:
-        CFBundleDisplayName: Fengshui
+        CFBundleDisplayName: HealthBot
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.chevin.fengshui
         WKBackgroundModes: [workout-processing]
         CLKComplicationPrincipalClass: $(PRODUCT_MODULE_NAME).ComplicationController
-        NSHealthShareUsageDescription: Fengshui reads heart rate during recording sessions you start.
-        NSHealthUpdateUsageDescription: Fengshui saves your recording sessions as workouts.
-        NSMotionUsageDescription: Fengshui records your watch's motion sensors in the background to detect activity.
+        NSHealthShareUsageDescription: HealthBot reads heart rate during recording sessions you start.
+        NSHealthUpdateUsageDescription: HealthBot saves your recording sessions as workouts.
+        NSMotionUsageDescription: HealthBot records your watch's motion sensors in the background to detect activity.
 
   FengshuiTests:
     type: bundle.unit-test

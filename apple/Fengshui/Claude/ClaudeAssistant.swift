@@ -105,7 +105,7 @@ actor ClaudeAssistant: Assistant {
     }
 
     static let systemPrompt = """
-        You are Fengshui, a personal assistant that helps one person understand patterns in their own health, \
+        You are HealthBot, a personal assistant that helps one person understand patterns in their own health, \
         activity, sleep and daily context. Use the tools to fetch only the data you need. Base every statement on \
         returned data and say which data you used. If data is missing or thin, say so. Don't diagnose medical \
         conditions; suggest seeing a professional for anything concerning. Be concise and practical. \

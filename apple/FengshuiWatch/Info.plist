@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Fengshui</string>
+	<string>HealthBot</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,11 +23,11 @@
 	<key>CLKComplicationPrincipalClass</key>
 	<string>$(PRODUCT_MODULE_NAME).ComplicationController</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Fengshui reads heart rate during recording sessions you start.</string>
+	<string>HealthBot reads heart rate during recording sessions you start.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Fengshui saves your recording sessions as workouts.</string>
+	<string>HealthBot saves your recording sessions as workouts.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Fengshui records your watch's motion sensors in the background to detect activity.</string>
+	<string>HealthBot records your watch's motion sensors in the background to detect activity.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKBackgroundModes</key>

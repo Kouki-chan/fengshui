@@ -120,7 +120,7 @@ final class OnboardingUITests: XCTestCase {
 
         // Ask tab: preset questions listed; without a key it explains what to do.
         app.tabBars.buttons["Ask"].tap()
-        XCTAssertTrue(app.navigationBars["Ask FengShui Agent"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Ask HealthBot"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["How active was I today?"].waitForExistence(timeout: 5))
         app.buttons["How active was I today?"].tap()
         XCTAssertTrue(app.staticTexts["ask.answer"].waitForExistence(timeout: 5))

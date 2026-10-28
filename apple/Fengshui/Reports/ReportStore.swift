@@ -138,6 +138,12 @@ final class ReportStore: Sendable {
         return (try? db.writer.read { try ReportData.available($0, range: range) }) ?? []
     }
 
+    /// The same, read off the calling thread (the Reports tab calls this from the main actor).
+    func availableAsync(start: String, end: String) async -> [ReportData.Available] {
+        guard let range = ReportData.range(start: start, end: end, timeZone: timeZone) else { return [] }
+        return (try? await db.writer.read { try ReportData.available($0, range: range) }) ?? []
+    }
+
     // MARK: Every question gets a report
 
     /// Period and labels the answer looked at, from its tool calls; the last 7 days if none.

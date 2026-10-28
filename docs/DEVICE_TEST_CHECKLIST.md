@@ -77,6 +77,14 @@ Tap **Data**. ✅ Vitals, Today and Last night tiles appear, and the status line
 - **Bell** → **Select** → **Select all** → **Delete**. ✅ Empty, and the badge is gone.
 - Settings → **Health monitor** (after B10) → every **5 min** for **1 h** → **Start**. Keep the app open: "Checks with data" counts up, and it says "Pull mode" (push needs the paid account). To let the Mac's agent use Claude, run `security add-generic-password -a "$USER" -s fengshui-anthropic -w` in Terminal. It asks for the key without showing it. Then restart the server.
 
+### B9d. HealthBot look, keyboard and background questions
+- The home-screen icon is the pink heart bot on teal, named **HealthBot**. With the Home Screen set to Dark or Tinted, it switches variant.
+- Settings → **Appearance** → try each colour scheme and Light / Dark. ✅ Every tab recolours immediately, and text stays readable in both modes.
+- **Ask**: type a question and press **Return** (or the arrow). ✅ The keyboard goes away and your bubble appears with "…" under it.
+- While it's thinking, switch to **Data** and back a few times. ✅ No stutter, and the answer is still coming. Stay on Data until it finishes: ✅ the **Ask** tab gets a badge.
+- Ask again and go to the Home Screen right away. ✅ A "HealthBot answered" notification arrives (if the answer finishes within about 30 s), and it's also in the bell.
+- **Today** → tap "How active was I today?" ✅ It switches to Ask and the question is already running.
+
 ### B10. Connect the app to the Mac
 Settings → **Server & compute** → **Find on this network** (or type `http://<your-mac>.local:8765`) → paste the **token** from A5 → **Save & test connection**.
 ✅ **Expected:** "Connected ✓". Allow the **Local Network** prompt if it appears.

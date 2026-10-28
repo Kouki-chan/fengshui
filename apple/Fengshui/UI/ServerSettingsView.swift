@@ -20,7 +20,7 @@ struct ServerSettingsView: View {
                     Task {
                         busy = true
                         if let u = await ServerDiscovery.find() { url = u.absoluteString; status = "Found \(u.host() ?? "")" }
-                        else { status = "No Fengshui server found (is scripts/run_server.sh running?)" }
+                        else { status = "No HealthBot server found (is scripts/run_server.sh running?)" }
                         busy = false
                     }
                 }

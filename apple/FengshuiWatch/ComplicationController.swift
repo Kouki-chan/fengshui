@@ -10,7 +10,7 @@ final class ComplicationController: NSObject, CLKComplicationDataSource {
     }
 
     func getComplicationDescriptors(handler: @escaping ([CLKComplicationDescriptor]) -> Void) {
-        handler([CLKComplicationDescriptor(identifier: "status", displayName: "Fengshui",
+        handler([CLKComplicationDescriptor(identifier: "status", displayName: "HealthBot",
                                            supportedFamilies: [.graphicCorner, .graphicCircular, .modularSmall,
                                                                .utilitarianSmall, .circularSmall])])
     }

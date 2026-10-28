@@ -48,7 +48,7 @@ TOOLS = [
     _tool("list_report_labels", "Which data labels have samples between two local dates, grouped (Vitals, Sleep, Activity, "
           "Events, Body, Mind, Nutrition, Other).", {"start": DATE, "end": DATE}, ["start", "end"]),
     _tool("get_monitor_status", "The latest health-monitor session and its most recent alerts.", {}, []),
-    _tool("notify_user", "Put a message in the person's Fengshui inbox on their iPhone (and push it when push is set up). "
+    _tool("notify_user", "Put a message in the person's HealthBot inbox on their iPhone (and push it when push is set up). "
           "Use for the result of a scheduled check-in. Title at most 50 characters, body at most 300.",
           {"title": {"type": "string"}, "body": {"type": "string"},
            "severity": {"type": "string", "enum": ["info", "warning", "urgent"]}}, ["title", "body", "severity"]),
@@ -167,10 +167,10 @@ class DeploymentWatcher:
             if n > MAX_TOOL_CALLS:
                 out, err = "Tool budget reached for this run. Finish with what you have.", True
             elif name in PHONE_ONLY:
-                out, err = f"{name} only works in the Fengshui app on the iPhone.", True
+                out, err = f"{name} only works in the HealthBot app on the iPhone.", True
             elif name == "notify_user":
                 self._notify(args)
-                out, err, notified = "Delivered to the person's Fengshui inbox.", False, True
+                out, err, notified = "Delivered to the person's HealthBot inbox.", False, True
             else:
                 out, err = json.dumps(self._run(name, args), separators=(",", ":"))[:12_000], False
         except Exception as e:          # noqa: BLE001 — returned to the agent as a tool error
@@ -204,7 +204,7 @@ class DeploymentWatcher:
             if tok:
                 s["push_token"], s["push_env"] = tok
             sev = a.get("severity") if a.get("severity") in mon.SEVERITY_RANK else "info"
-            alert = mon.add_alert(conn, s, now=self.clock(), severity=sev, title=str(a.get("title", "Fengshui"))[:80],
+            alert = mon.add_alert(conn, s, now=self.clock(), severity=sev, title=str(a.get("title", "HealthBot"))[:80],
                                   body=str(a.get("body", ""))[:400], flags=[], decided_by="deployment")
             mon.Monitor._push_alert(SimpleMonitor(self.push), conn, s, alert)
             conn.commit()
