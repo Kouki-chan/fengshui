@@ -28,6 +28,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Text(env.clock.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.subheadline.weight(.medium)).foregroundStyle(.secondary).padding(.leading, 4)
+                SnippetCard(ui: ui) { ui.openProfile() }
                 tonight
                 if let steps = day["steps"] as? Int { stats(steps) }
                 if !bouts.isEmpty { timeline }
@@ -37,9 +38,18 @@ struct TodayView: View {
         }
         .themedBackground()
         .navigationTitle("Today")
-        .onReceive(Foundation.NotificationCenter.default.publisher(for: .engineDidRun)) { _ in Task { await reload() } }
-        .refreshable { await env.engine.run(EngineRunner.lightTasks, trigger: "pull_to_refresh"); await reload() }
-        .task { await reload() }
+        .onReceive(Foundation.NotificationCenter.default.publisher(for: .engineDidRun)) { _ in
+            Task { await reload(); await ui.snippets.refresh() }
+        }
+        .refreshable {
+            // The engine run can take a while (especially on the Mac server), so it isn't awaited:
+            // the spinner closes now, and .engineDidRun reloads this screen when the run finishes.
+            let engine = env.engine
+            Task.detached { await engine.run(EngineRunner.lightTasks, trigger: "pull_to_refresh") }
+            await reload()
+            await ui.snippets.refresh()
+        }
+        .task { await reload(); await ui.snippets.refresh() }
     }
 
     // MARK: Sections

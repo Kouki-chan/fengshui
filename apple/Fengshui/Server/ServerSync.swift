@@ -47,16 +47,47 @@ actor ServerSync {
         ((try? db.preference(Self.urlKey, as: String.self)) ?? nil).flatMap(URL.init(string:))
     }
 
-    func client() throws -> ServerClient {
+    /// nonisolated: building a client only reads settings, so callers (the Monitor tab) never wait
+    /// behind a long sync running on this actor.
+    nonisolated func client() throws -> ServerClient {
         guard let url = baseURL, let token = secrets.get(SecretKey.serverToken), !token.isEmpty else {
             throw ServerClient.Failure.notConfigured
         }
         return ServerClient(baseURL: url, token: token, session: session)
     }
 
+    /// A quick check (8 s), so a Mac that's off or away never holds up the caller for long.
     func reachable() async -> Bool {
-        guard let c = try? client() else { return false }
+        guard var c = try? client() else { return false }
+        c.timeout = 8
         return (try? await c.health())?["ok"] as? Bool == true
+    }
+
+    /// nil when the server answers and accepts the token; otherwise what's wrong, in words (Settings test).
+    func connectionProblem() async -> String? {
+        guard var c = try? client() else { return "Enter the server URL and the token first." }
+        c.timeout = 8
+        do {
+            _ = try await c.health()
+            _ = try await c.get("monitor/sessions/current", query: ["device_id": "connection-test"])
+            return nil
+        } catch ServerClient.Failure.http(401, _) {
+            return "The server is there but rejected the token. Copy it from the Mac again and paste it here."
+        } catch let e as URLError {
+            switch e.code {
+            case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
+                return "iOS isn't letting HealthBot use the local network. Turn it on in Settings → Privacy & Security → "
+                    + "Local Network → HealthBot, then try again."
+            case .cannotConnectToHost, .cannotFindHost, .timedOut, .dnsLookupFailed:
+                return "Nothing answered at \(c.baseURL.absoluteString). Check the address and that scripts/run_server.sh is running."
+            case .appTransportSecurityRequiresSecureConnection:
+                return "iOS blocked this address. Use the Mac's local IP (10.x / 192.168.x) or its .local name."
+            default:
+                return e.localizedDescription
+            }
+        } catch {
+            return "\(error)"
+        }
     }
 
     // MARK: Sync

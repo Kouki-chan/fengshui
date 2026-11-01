@@ -60,7 +60,7 @@ actor EngineRunner {
         guard let server else { return false }
         switch location {
         case .phone: return false
-        case .server: return true
+        case .server: return await server.reachable()  // else straight to the phone, without a slow failed upload
         case .auto:
             let backlog = (try? await db.writer.read { db in
                 try Int.fetchOne(db, sql: """

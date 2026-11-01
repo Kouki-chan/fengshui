@@ -79,28 +79,67 @@ struct MainTabs: View {
             Tab("Data", systemImage: "waveform.path.ecg", value: UIState.TabID.data) {
                 NavigationStack { DataView(env: env, model: ui.data).inboxToolbar(env) }
             }
-            Tab("Reports", systemImage: "doc.richtext", value: UIState.TabID.reports) {
-                NavigationStack { ReportsView(env: env).inboxToolbar(env) }
+            Tab("Monitor", systemImage: "heart.text.square", value: UIState.TabID.monitor) {
+                NavigationStack { MonitorView(env: env).inboxToolbar(env) }
             }
             Tab("Ask", systemImage: "bubble.left.and.text.bubble.right", value: UIState.TabID.ask) {
                 NavigationStack { AskView(env: env, ui: ui).inboxToolbar(env) }
             }
             .badge(ui.ask.unseen)
-            Tab("Settings", systemImage: "gear", value: UIState.TabID.settings) {
-                NavigationStack { SettingsView(model: model).inboxToolbar(env) }
+            Tab("Reports", systemImage: "doc.richtext", value: UIState.TabID.reports) {
+                NavigationStack { ReportsView(env: env).inboxToolbar(env) }
             }
+        }
+        .sheet(isPresented: $ui.showSettings, onDismiss: { ui.showProfile = false }) {
+            SettingsSheet(model: model, ui: ui)
         }
         .environment(ui)
         .task { ui.observeInbox() }
     }
 }
 
+/// Settings in a sheet, opened from the profile avatar (or straight on Profile from Today).
+struct SettingsSheet: View {
+    let model: AppModel
+    let ui: UIState
+    @State private var path: [String] = []
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            SettingsView(model: model)
+                .navigationDestination(for: String.self) { _ in ProfileView(env: model.env) }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { ui.showSettings = false }.accessibilityIdentifier("settings.done")
+                    }
+                }
+        }
+        .environment(ui)
+        .onAppear { if ui.showProfile { path = ["profile"] } }
+    }
+}
+
 struct SettingsView: View {
     let model: AppModel
     @Environment(\.theme) private var theme
+    @Environment(UIState.self) private var ui: UIState?
 
     var body: some View {
         List {
+            Section {
+                NavigationLink(value: "profile") {
+                    HStack(spacing: 14) {
+                        ProfileAvatar(initials: ui?.profile.initials ?? "", size: 52)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(ui.map { $0.profile.name.isEmpty ? "Your profile" : $0.profile.name } ?? "Your profile")
+                                .font(.headline)
+                            Text(profileSummary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .accessibilityIdentifier("settings.profile")
+            }
             Section {
                 HStack(spacing: 14) {
                     HealthBotLogo(size: 56)
@@ -121,12 +160,11 @@ struct SettingsView: View {
                 }
                 SigningRow()
             }
-            Section("Claude") {
-                row("Claude", "sparkles", theme.highlight, id: "settings.claude") { ClaudeSettingsView(env: model.env) }
+            Section("Agent") {
+                row("Agent", "sparkles", theme.highlight, id: "settings.claude") { ClaudeSettingsView(env: model.env) }
             }
             Section("Mac server") {
                 row("Server & compute", "desktopcomputer", theme.tint, id: "settings.server") { ServerSettingsView(env: model.env) }
-                row("Health monitor", "waveform.path.ecg", theme.heart, id: "settings.monitor") { MonitorView(env: model.env) }
             }
             Section("Watch") {
                 row("Recording", "applewatch", theme.activity, id: "settings.recording") { RecordingView(env: model.env) }
@@ -145,6 +183,12 @@ struct SettingsView: View {
         }
         .themedList()
         .navigationTitle("Settings")
+    }
+
+    private var profileSummary: String {
+        guard let p = ui?.profile else { return "Goals and details HealthBot uses" }
+        if p.goals.isEmpty { return "Add your goals so HealthBot can tailor its notes" }
+        return p.goals.joined(separator: " · ")
     }
 
     private func row<D: View>(_ title: String, _ icon: String, _ tint: Color, id: String,

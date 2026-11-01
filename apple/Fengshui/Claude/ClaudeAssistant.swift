@@ -171,12 +171,19 @@ actor ClaudeAssistant: Assistant {
         return f.string(from: d)
     }
 
+    /// The volatile context blocks that open each question: the time, and the user's profile if they share it.
+    static func context(db: AppDatabase, now: Date, timeZone: TimeZone) -> [[String: Any]] {
+        var blocks: [[String: Any]] = [["type": "text", "text": "Now: \(localDate(now, timeZone)) (\(timeZone.identifier))."]]
+        if let about = UserProfile.load(db).claudeContext(now: now, timeZone: timeZone) {
+            blocks.append(["type": "text", "text": about])
+        }
+        return blocks
+    }
+
     func ask(_ question: String) async -> Answer {
         let now = clock.now
-        var messages: [[String: Any]] = [["role": "user", "content": [
-            ["type": "text", "text": "Now: \(Self.localDate(now, timeZone)) (\(timeZone.identifier))."],
-            ["type": "text", "text": question],
-        ]]]
+        var messages: [[String: Any]] = [["role": "user", "content": Self.context(db: db, now: now, timeZone: timeZone)
+            + [["type": "text", "text": question]]]]
         var answer = Answer(text: "", answeredBy: answeredBy)
         var calls: [[String: Any]] = []
         var toolChars = 0

@@ -311,6 +311,26 @@ def create_app(settings: Settings | None = None, *, bonjour: bool = False, port:
     return app
 
 
+def _lan_addresses(host: str) -> list[str]:
+    """The Mac's IPv4 addresses the phone can reach, Wi-Fi/Ethernet first. The hostname alone can
+    resolve to the USB-cable link (169.254.x) while an iPhone is plugged in, which fails over Wi-Fi."""
+    import socket
+    found: list[str] = []
+    try:  # the address of the default route (no packet is sent)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            found.append(s.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        found += socket.gethostbyname_ex(host if host.endswith(".local") else host + ".local")[2]
+    except OSError:
+        pass
+    usable = [a for a in dict.fromkeys(found) if not a.startswith("127.")]
+    usable.sort(key=lambda a: a.startswith("169.254."))
+    return usable or ["127.0.0.1"]
+
+
 async def _advertise(port: int):
     """Bonjour `_fengshui._tcp` so the phone can find the server on the LAN (spec §12).
     Async API: the sync one deadlocks inside uvicorn's event loop."""
@@ -319,12 +339,8 @@ async def _advertise(port: int):
     from zeroconf import ServiceInfo
     from zeroconf.asyncio import AsyncZeroconf
     host = socket.gethostname()
-    try:
-        addr = socket.gethostbyname(host if host.endswith(".local") else host + ".local")
-    except OSError:
-        addr = "127.0.0.1"
     info = ServiceInfo("_fengshui._tcp.local.", f"HealthBot on {host.split('.')[0]}._fengshui._tcp.local.",
-                       addresses=[socket.inet_aton(addr)], port=port,
+                       addresses=[socket.inet_aton(a) for a in _lan_addresses(host)], port=port,
                        properties={"engine": ENGINE_VERSION, "path": "/"})
     zc = AsyncZeroconf()
     # A second server, or a restart before the old record expires, gets "… (2)" instead of failing.

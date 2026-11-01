@@ -1,7 +1,7 @@
 import GRDB
 import SwiftUI
 
-/// Spec §15 Ask: preset questions + free-form chat. Settings → Claude holds the key and model.
+/// Spec §15 Ask: preset questions + free-form chat. Settings → Agent holds the key and model.
 /// The conversation lives in `AskSession` (UIState), not here: a question keeps running while
 /// the user switches tabs, and the Ask tab shows a badge when its answer arrives.
 struct AskView: View {
@@ -31,6 +31,12 @@ struct AskView: View {
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: session.turns) { withAnimation(.snappy) { proxy.scrollTo("bottom", anchor: .bottom) } }
             .onAppear { proxy.scrollTo("bottom", anchor: .bottom) }
+        }
+        .onChange(of: session.prefill, initial: true) { _, text in
+            guard let text else { return }
+            draft = text
+            session.prefill = nil
+            composing = true
         }
         .themedBackground()
         .safeAreaInset(edge: .bottom) { composer }
@@ -270,7 +276,7 @@ struct QuestionsEditor: View {
     private func reload() { questions = (try? env.questions.all()) ?? [] }
 }
 
-/// Settings → Claude: API key (Keychain only), model, and the ai_log viewer.
+/// Settings → Agent: API key (Keychain only), model, and the ai_log viewer.
 struct ClaudeSettingsView: View {
     let env: AppEnvironment
     @Environment(UIState.self) private var ui: UIState?
@@ -316,7 +322,7 @@ struct ClaudeSettingsView: View {
         }
         .themedList()
         .keyboardDoneButton()
-        .navigationTitle("Claude")
+        .navigationTitle("Agent")
         .task {
             key = env.secrets.get(SecretKey.anthropicKey) ?? ""
             model = env.claudeModel
@@ -342,7 +348,7 @@ struct AILogView: View {
             }
         }
         .themedList()
-        .navigationTitle("Claude log")
+        .navigationTitle("Agent log")
         .task {
             rows = (try? await env.db.writer.read { db in
                 try Row.fetchAll(db, sql: "SELECT * FROM ai_log ORDER BY id DESC LIMIT 100").map {

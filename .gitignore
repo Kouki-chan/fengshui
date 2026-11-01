@@ -36,3 +36,9 @@ xcuserdata/
 
 # --- macOS ---
 .DS_Store
+
+# --- Slides and posters: keep local only ---
+*.pptx
+*.potx
+~$*
+docs/presentation/

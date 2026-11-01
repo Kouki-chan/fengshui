@@ -9,11 +9,17 @@ import UIKit
 @MainActor
 @Observable
 final class UIState {
-    enum TabID: Hashable { case today, data, reports, ask, settings }
+    enum TabID: Hashable { case today, data, monitor, ask, reports }
 
     let ask: AskSession
     let data: DataModel
+    let snippets: SnippetModel
     var tab: TabID = .today { didSet { ask.isVisible = tab == .ask } }
+    /// Settings is a sheet opened from the profile avatar on every tab (DECISIONS D-24).
+    var showSettings = false
+    /// Opens Settings straight on Profile.
+    var showProfile = false
+    private(set) var profile: UserProfile
     private(set) var unread = 0
     private(set) var hasKey = false
     private let env: AppEnvironment
@@ -23,7 +29,19 @@ final class UIState {
         self.env = env
         ask = AskSession(env: env)
         data = DataModel(env: env)
+        snippets = SnippetModel(env: env)
+        profile = UserProfile.load(env.db)
         refreshKey()
+    }
+
+    func reloadProfile() {
+        profile = UserProfile.load(env.db)
+        Task { await snippets.refresh() }
+    }
+
+    func openProfile() {
+        showProfile = true
+        showSettings = true
     }
 
     func refreshKey() {
@@ -60,9 +78,11 @@ final class AskSession {
         var state = State.queued
     }
 
-    static let noKeyAnswer = "Add your Anthropic API key in Settings → Claude first."
+    static let noKeyAnswer = "Add your Anthropic API key in Settings → Agent first."
 
     private(set) var turns: [Turn] = []
+    /// Text to start the composer with the next time Ask is shown (e.g. replying to a Today snippet).
+    var prefill: String?
     /// Answers that arrived while the Ask tab wasn't on screen (shown as the tab's badge).
     private(set) var unseen = 0
     var isVisible = false { didSet { if isVisible { unseen = 0 } } }

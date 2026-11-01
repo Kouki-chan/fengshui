@@ -9,6 +9,7 @@ struct ServerSettingsView: View {
     @State private var location = EngineRunner.Location.auto
     @State private var status = ""
     @State private var busy = false
+    @State private var serverInfo: [String: Any]?
 
     var body: some View {
         Form {
@@ -24,8 +25,16 @@ struct ServerSettingsView: View {
                         busy = false
                     }
                 }
-                SecureField("Token from run_server.sh", text: $token)
-                    .accessibilityIdentifier("server.token")
+                HStack {
+                    SecureField("Token from run_server.sh", text: $token)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .accessibilityIdentifier("server.token")
+                    // Apple's paste button: reads the clipboard (e.g. copied on the Mac) without a prompt.
+                    PasteButton(payloadType: String.self) { items in
+                        if let t = items.first { token = t.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    }
+                    .labelStyle(.iconOnly).buttonBorderShape(.capsule)
+                }
             } header: { Text("Mac server") } footer: {
                 Text("Syncs over Wi-Fi only. The token is stored in the Keychain.")
             }
@@ -40,6 +49,15 @@ struct ServerSettingsView: View {
                 Text("Automatic uses the Mac when Low Power Mode is on or more than a day of watch data is waiting, if the Mac is reachable.")
             }
             Section {
+                LabeledContent("Server agent", value: agentText)
+                    .accessibilityIdentifier("server.agent")
+                LabeledContent("Apple push", value: pushText)
+                    .accessibilityIdentifier("server.push")
+            } header: { Text("Health monitor delivery") } footer: {
+                Text("The server agent decides whether a reading is worth an alert. With push, the server can ask this "
+                     + "iPhone for readings even when HealthBot is closed.")
+            }
+            Section {
                 Button("Save & test connection") { Task { await save(); await test() } }
                     .accessibilityIdentifier("server.save")
                 Button("Sync now") { Task { await run { _ = try await env.server.sync(); _ = try await env.server.archive() } } }
@@ -52,17 +70,43 @@ struct ServerSettingsView: View {
             url = env.server.baseURL?.absoluteString ?? ""
             token = env.secrets.get(SecretKey.serverToken) ?? ""
             location = env.engine.location
+            await loadServerInfo()
         }
     }
 
+    private var monitorInfo: [String: Any]? { serverInfo?["monitor"] as? [String: Any] }
+
+    private var agentText: String {
+        guard let m = monitorInfo else { return "server not reachable" }
+        return (m["agent"] as? Bool) == true ? "FengShui" : "rules only (no key on the Mac)"
+    }
+
+    /// On only when this iPhone has a push token and the server can send pushes.
+    private var pushText: String {
+        if env.monitor.pushToken == nil { return "off (needs the paid developer account)" }
+        guard let m = monitorInfo else { return "server not reachable" }
+        return (m["push"] as? Bool) == true ? "on" : "off on the server"
+    }
+
+    private func loadServerInfo() async {
+        guard var c = try? env.server.client() else { serverInfo = nil; return }
+        c.timeout = 8
+        serverInfo = try? await c.health()
+    }
+
     private func save() async {
-        try? env.db.setPreference(ServerSync.urlKey, url.trimmingCharacters(in: .whitespaces), now: env.clock.now)
+        url = ServerDiscovery.normalize(url)
+        try? env.db.setPreference(ServerSync.urlKey, url, now: env.clock.now)
         env.secrets.set(SecretKey.serverToken, token.trimmingCharacters(in: .whitespaces))
         try? env.db.setPreference(EngineRunner.locationKey, location, now: env.clock.now)
     }
 
     private func test() async {
-        status = await env.server.reachable() ? "Connected ✓" : "Can't reach the server"
+        busy = true
+        status = "Testing…"
+        status = await env.server.connectionProblem() ?? "Connected ✓"
+        await loadServerInfo()
+        busy = false
     }
 
     private func run(_ work: @escaping () async throws -> Void) async {

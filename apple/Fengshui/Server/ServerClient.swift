@@ -17,6 +17,8 @@ struct ServerClient: Sendable {
     let baseURL: URL
     let token: String
     let session: URLSession
+    /// Per-request timeout; the Settings connection test uses a short one.
+    var timeout: TimeInterval = 120
 
     init(baseURL: URL, token: String, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -50,7 +52,7 @@ struct ServerClient: Sendable {
 
     private func send(_ req: URLRequest, auth: Bool) async throws -> [String: Any] {
         var r = req
-        r.timeoutInterval = 120
+        r.timeoutInterval = timeout
         if auth { r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         let (data, resp) = try await session.data(for: r)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
@@ -93,21 +95,28 @@ enum ServerDiscovery {
         await withCheckedContinuation { cont in
             let browser = NWBrowser(for: .bonjour(type: "_fengshui._tcp", domain: nil), using: .tcp)
             let done = Once()
+            // IPv4 only: an IPv6 answer is often link-local (fe80::…%en0), which a URL can't carry reliably.
+            let params = NWParameters.tcp
+            (params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options)?.version = .v4
+            let tried = Tried()
             browser.browseResultsChangedHandler = { results, _ in
-                guard let r = results.first else { return }
-                // Resolve the service by connecting once and reading the remote endpoint.
-                let conn = NWConnection(to: r.endpoint, using: .tcp)
-                conn.stateUpdateHandler = { state in
-                    if case .ready = state, case let .hostPort(host, port)? = conn.currentPath?.remoteEndpoint {
-                        var h = "\(host)"
-                        if let i = h.firstIndex(of: "%") { h = String(h[..<i]) }      // strip interface scope
-                        if h.contains(":") { h = "[\(h)]" }
+                for r in results where tried.insert(r.endpoint) {
+                    // Resolve the service by connecting once and reading the remote address.
+                    let conn = NWConnection(to: r.endpoint, using: params)
+                    conn.stateUpdateHandler = { state in
+                        guard case .ready = state, case let .hostPort(host, port)? = conn.currentPath?.remoteEndpoint else {
+                            if case .failed = state { conn.cancel() }
+                            return
+                        }
                         conn.cancel()
+                        let h = "\(host)".split(separator: "%").first.map(String.init) ?? ""
+                        // 169.254.x is the USB-cable link to the Mac: it stops working once unplugged.
+                        guard !h.hasPrefix("169.254."), !h.contains(":") else { return }
                         browser.cancel()
                         if done.claim() { cont.resume(returning: URL(string: "http://\(h):\(port)")) }
                     }
+                    conn.start(queue: .main)
                 }
-                conn.start(queue: .main)
             }
             browser.start(queue: .main)
             DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
@@ -115,6 +124,23 @@ enum ServerDiscovery {
                 if done.claim() { cont.resume(returning: nil) }
             }
         }
+    }
+
+    /// The server's base URL from whatever was typed or pasted: adds a missing "http://" and drops
+    /// any path, e.g. "10.0.0.5:8765/health" → "http://10.0.0.5:8765".
+    static func normalize(_ text: String) -> String {
+        var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return t }
+        if !t.contains("://") { t = "http://" + t }
+        guard let c = URLComponents(string: t), let scheme = c.scheme, let host = c.host, !host.isEmpty else { return t }
+        let h = host.contains(":") ? "[\(host)]" : host
+        return "\(scheme)://\(h)" + (c.port.map { ":\($0)" } ?? "")
+    }
+
+    /// Endpoints already being resolved (touched only on the main queue, like the browser).
+    final class Tried: @unchecked Sendable {
+        private var seen = Set<NWEndpoint>()
+        func insert(_ e: NWEndpoint) -> Bool { seen.insert(e).inserted }
     }
 
     final class Once: @unchecked Sendable {

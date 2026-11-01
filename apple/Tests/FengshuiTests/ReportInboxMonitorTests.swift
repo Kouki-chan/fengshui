@@ -208,7 +208,7 @@ final class ReportTests: XCTestCase {
     }
 
     func testEveryQuestionGetsAReportScopedToTheToolCalls() async throws {
-        let (_, store, _, sc) = try env("question")
+        let (db, store, _, sc) = try env("question")
         let (a, b) = days(sc, back: 2)
         var ans = ClaudeAssistant.Answer(text: "You slept about 7 hours and walked 9,000 steps a day.",
                                          answeredBy: "Managed Agent “FengShui Agent” (agent_x) · session sesn_y")
@@ -228,9 +228,25 @@ final class ReportTests: XCTestCase {
         let plain = try await XCTUnwrapAsync(await store.questionReport(question: "Hi?", answer: .init(text: "Hello.")))
         XCTAssertEqual(plain.labels, [])
         XCTAssertEqual(plain.endDate, ReportData.dayString(Date(timeIntervalSince1970: sc.now), TimeZone(identifier: sc.tz)!))
+        // No tool calls the phone saw, but the question names the data: labelled from its words.
+        let worded = try await XCTUnwrapAsync(await store.questionReport(question: "How did I sleep this week?",
+                                                                         answer: .init(text: "About 7 h a night.")))
+        XCTAssertEqual(worded.labels, ["sleep_analysis"])
         // Failed answers (no key, network) don't make reports.
         let failed = await store.questionReport(question: "x", answer: .init(text: "Couldn't reach Claude", error: "network"))
         XCTAssertNil(failed)
+        // Reports saved without labels get them from their text; ones with nothing to go on stay empty.
+        try await db.writer.write { d in try d.execute(sql: "UPDATE reports SET labels_json = '[]' WHERE id = ?", arguments: [worded.id]) }
+        await store.labelUnlabeledReports()
+        XCTAssertEqual(store.record(worded.id)?.labels, ["sleep_analysis"])
+        XCTAssertEqual(store.record(plain.id)?.labels, [])
+    }
+
+    func testLabelsMentionedInText() {
+        XCTAssertEqual(ReportStore.labels(mentionedIn: "How did I sleep?"), ["sleep_analysis"])
+        XCTAssertEqual(ReportStore.labels(mentionedIn: "Is my resting heart rate up?"), ["heart_rate", "resting_heart_rate"])
+        XCTAssertTrue(ReportStore.labels(mentionedIn: "How many steps did I walk?").contains("step_count"))
+        XCTAssertEqual(ReportStore.labels(mentionedIn: "Hi there"), [])
     }
 
     func testReportToolsAreReadOnlyAndNeverExposeRawData() throws {

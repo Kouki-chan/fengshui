@@ -1,13 +1,12 @@
 import SwiftUI
 
-/// Settings → Health monitor (DECISIONS D-19): the user chooses how often the server checks
+/// The Monitor tab (DECISIONS D-19, a tab since D-24): the user chooses how often the server checks
 /// and for how long; alerts land in the inbox and as notifications.
 struct MonitorView: View {
     let env: AppEnvironment
     @State private var interval = 5.0
     @State private var duration = 4.0
     @State private var session: MonitorSession?
-    @State private var serverInfo: [String: Any]?
     @State private var error: String?
     @State private var busy = false
 
@@ -38,15 +37,10 @@ struct MonitorView: View {
                         .accessibilityIdentifier("monitor.start")
                 } header: { Text("New session") } footer: {
                     Text("At each check the server compares your latest heart rate, blood oxygen, breathing rate and HRV "
-                         + "with fixed limits and your own 30-day baseline. Only when something looks off does Claude look at the "
+                         + "with fixed limits and your own 30-day baseline. Only when something looks off does HealthBot look at the "
                          + "context and decide whether to notify you. Very low oxygen and a very high resting heart rate always notify.")
                 }
                 if let s = session { lastSection(s) }
-            }
-            Section("Delivery") {
-                LabeledContent("Server agent", value: agentText)
-                LabeledContent("Apple push", value: pushText)
-                Text(pushExplanation).font(.caption).foregroundStyle(.secondary)
             }
             if let error { Section { Text(error).foregroundStyle(.red).font(.caption) } }
             Section {
@@ -54,8 +48,8 @@ struct MonitorView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
+        .themedList()
         .navigationTitle("Health monitor")
-        .refreshable { await reload() }
         .task { await reload() }
     }
 
@@ -85,32 +79,15 @@ struct MonitorView: View {
         }
     }
 
-    private var agentText: String {
-        guard let m = serverInfo?["monitor"] as? [String: Any] else { return "server not reachable" }
-        return (m["agent"] as? Bool) == true ? "Claude" : "rules only (no key on the Mac)"
-    }
-
-    private var pushText: String {
-        let server = ((serverInfo?["monitor"] as? [String: Any])?["push"] as? Bool) == true
-        if env.monitor.pushToken != nil && server { return "on" }
-        return "off"
-    }
-
-    private var pushExplanation: String {
-        if env.monitor.pushToken == nil {
-            return "This app can't receive pushes on a free Apple account (\(env.monitor.pushError ?? "not registered")). "
-                + "With the paid developer program the server can ask for readings even when the app is closed (docs/PAID_ACCOUNT_SWITCH.md)."
-        }
-        return "Push requests are best effort: iOS limits background pushes to a few per hour."
-    }
-
     static func durationText(_ h: Double) -> String {
         h < 1 ? "\(Int(h * 60)) min" : "\(h.formatted()) h"
     }
 
+    /// Shows the last known session at once, then asks the server for the current one, giving
+    /// up after a few seconds if the Mac isn't reachable.
     private func reload() async {
-        serverInfo = try? await env.server.client().health()
-        session = (try? await env.monitor.refresh()) ?? env.monitor.cached
+        if session == nil { session = env.monitor.cached }
+        session = (try? await env.monitor.refresh(timeout: 8)) ?? env.monitor.cached
     }
 
     private func start() async {

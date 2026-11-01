@@ -94,7 +94,7 @@ actor MonitorClient {
     }
 
     func start(intervalMin: Double, durationH: Double) async throws -> MonitorSession {
-        let c = try await server.client()
+        let c = try server.client()
         var body: [String: Any] = ["device_id": deviceID, "interval_min": intervalMin, "duration_h": durationH]
         if let t = pushToken {
             body["push_token"] = t
@@ -116,15 +116,16 @@ actor MonitorClient {
 
     func stop() async throws -> MonitorSession? {
         guard let s = cached else { return nil }
-        let c = try await server.client()
+        let c = try server.client()
         let stopped = MonitorSession.from(try await c.post("monitor/sessions/\(s.id)/stop", [:]))
         save(stopped)
         return stopped
     }
 
     @discardableResult
-    func refresh() async throws -> MonitorSession? {
-        let c = try await server.client()
+    func refresh(timeout: TimeInterval = 120) async throws -> MonitorSession? {
+        var c = try server.client()
+        c.timeout = timeout
         let s = MonitorSession.from((try await c.get("monitor/sessions/current", query: ["device_id": deviceID]))["session"] as? [String: Any])
         save(s)
         return s
@@ -151,7 +152,7 @@ actor MonitorClient {
         }
         let p = (try JSONSerialization.jsonObject(with: payload)) as? [String: Any] ?? [:]
         let samples = p["samples"] as? [Any] ?? [], baselines = p["baselines"] ?? [String: Double]()
-        let c = try await server.client()
+        let c = try server.client()
         let r = try await c.post("monitor/readings", ["session_id": s.id, "ts": now, "trigger": trigger, "samples": samples,
                                                       "baselines": baselines])
         try? db.setPreference(Self.lastSentKey, now, now: clock.now)
@@ -164,7 +165,7 @@ actor MonitorClient {
 
     /// Alerts the server made (including the end-of-session summary) that this phone hasn't filed yet.
     func pullAlerts() async {
-        guard let c = try? await server.client() else { return }
+        guard let c = try? server.client() else { return }
         let since = ((try? db.preference(Self.lastAlertKey, as: Int64.self)) ?? nil) ?? 0
         guard let r = try? await c.get("monitor/alerts", query: ["device_id": deviceID, "since_id": "\(since)"]) else { return }
         await file(r["alerts"] as? [[String: Any]] ?? [])

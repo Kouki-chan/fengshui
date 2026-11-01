@@ -6,38 +6,23 @@ import SwiftUI
 /// the user adjusts, AI writes the summary), and browse every saved report, including the one
 /// each Ask question creates, filtered by labels and a date or date range.
 struct ReportsView: View {
-    enum Period: String, CaseIterable { case day = "Day", range = "Range" }
-
     let env: AppEnvironment
-    @Environment(UIState.self) private var ui: UIState?
     @Environment(\.theme) private var theme
     @State private var started = false
-    @State private var period: Period = .range
-    @State private var day = Date()
-    @State private var start = Date().addingTimeInterval(-29 * 86_400)
-    @State private var end = Date()
-    @State private var title = ""
-    @State private var purpose = ""
-    @State private var available: [ReportData.Available] = []
-    @State private var selected = Set<String>()
-    @State private var reasons: [String: String] = [:]
-    @State private var aiSummary = true
-    @State private var busy: String?
-    @State private var status: String?
     @State private var reports: [ReportRecord] = []
     @State private var filter = ReportFilter()
     @State private var filterStart = Date().addingTimeInterval(-6 * 86_400)
     @State private var filterEnd = Date()
     @State private var opened: ReportRecord?
+    /// The report options sheet, and the report it just created (opened once the sheet closes).
+    @State private var composing = false
+    @State private var created: ReportRecord?
+    @State private var showFilters = false
 
-    /// Cached in UIState: a Keychain read on every redraw made this tab stutter.
-    private var hasKey: Bool { ui?.hasKey ?? false }
-    private var startDate: String { ReportData.dayString(period == .day ? day : start, env.timeZone) }
-    private var endDate: String { ReportData.dayString(period == .day ? day : max(start, end), env.timeZone) }
 
     var body: some View {
         List {
-            newReport
+            Section { generateButton }
             savedFilters
             Section {
                 let shown = reports.filter(filter.matches)
@@ -60,15 +45,22 @@ struct ReportsView: View {
         .keyboardDoneButton()
         .navigationTitle("Reports")
         .navigationDestination(item: $opened) { ReportDetailView(env: env, report: $0) }
-        .task(id: "\(startDate)|\(endDate)") { await loadAvailable() }
+        .sheet(isPresented: $composing, onDismiss: {
+            if let r = created { created = nil; opened = r }
+        }) {
+            NewReportView(env: env) { r in
+                created = r
+                composing = false
+            }
+        }
         .task {
             // Once per app run: coming back to the tab keeps the dates the user picked.
             if !started {
                 started = true
                 let now = env.clock.now
-                day = now; end = now; start = now.addingTimeInterval(-29 * 86_400)
                 filterEnd = now; filterStart = now.addingTimeInterval(-6 * 86_400)
             }
+            await env.reports.labelUnlabeledReports()
             let obs = ValueObservation.tracking { try ReportStore.fetchAll($0) }.removeDuplicates()
             do { for try await r in obs.values(in: env.db.writer) { reports = r } } catch {}
         }
@@ -77,6 +69,124 @@ struct ReportsView: View {
     }
 
     // MARK: New report
+
+    private var generateButton: some View {
+        Button { composing = true } label: {
+            HStack(spacing: 14) {
+                IconBadge(systemImage: "doc.badge.plus", tint: theme.tint, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Generate report").font(.headline).foregroundStyle(.primary)
+                    Text("A PDF of your data for a health professional").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 4)
+        }
+        .accessibilityIdentifier("report.new")
+    }
+
+    // MARK: Saved-report filters
+
+    private var savedFilters: some View {
+        Section {
+            Button { withAnimation(.snappy) { showFilters.toggle() } } label: {
+                HStack {
+                    Label("Filters", systemImage: "line.3.horizontal.decrease.circle").foregroundStyle(.primary)
+                    Spacer()
+                    if filter.isActive { Text("On").font(.caption.weight(.semibold)).foregroundStyle(theme.tint) }
+                    Image(systemName: "chevron.down").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(showFilters ? 180 : 0))
+                }
+            }
+            .accessibilityIdentifier("report.filters")
+            if showFilters { filterRows }
+        }
+    }
+
+    @ViewBuilder private var filterRows: some View {
+        Picker("Show", selection: $filter.kind) { ForEach(ReportFilter.Kind.allCases, id: \.self) { Text($0.rawValue) } }
+            .pickerStyle(.segmented)
+        Picker("Date", selection: $filter.dateMode) {
+            ForEach(ReportFilter.DateMode.allCases, id: \.self) { Text($0.rawValue) }
+        }
+        .accessibilityIdentifier("report.filter.date")
+        .onChange(of: filter.dateMode) { syncFilterDates() }
+        if filter.dateMode == .day {
+            DatePicker("On", selection: $filterStart, displayedComponents: .date)
+        } else if filter.dateMode == .range {
+            DatePicker("From", selection: $filterStart, displayedComponents: .date)
+            DatePicker("To", selection: $filterEnd, in: filterStart..., displayedComponents: .date)
+        }
+        NavigationLink {
+            ReportLabelFilter(labels: Array(Set(reports.flatMap(\.labels))).sorted { DataSnapshot.title($0) < DataSnapshot.title($1) },
+                              selected: $filter.labels)
+        } label: {
+            LabeledContent("Data", value: filter.labels.isEmpty ? "Any" : "\(filter.labels.count) selected")
+        }
+        .accessibilityIdentifier("report.filter.labels")
+        TextField("Search title or question", text: $filter.text)
+        if filter.isActive {
+            Button("Clear filters", role: .destructive) { filter = ReportFilter() }
+        }
+    }
+
+    private func syncFilterDates() {
+        filter.start = ReportData.dayString(filterStart, env.timeZone)
+        filter.end = ReportData.dayString(max(filterStart, filterEnd), env.timeZone)
+    }
+}
+
+/// The "Generate report" sheet: period, purpose, the data to include (the AI can choose it) and
+/// an optional AI summary. Owns its own state so it updates while presented.
+struct NewReportView: View {
+    enum Period: String, CaseIterable { case day = "Day", range = "Range" }
+
+    let env: AppEnvironment
+    var onCreated: (ReportRecord) -> Void
+    @Environment(UIState.self) private var ui: UIState?
+    @Environment(\.dismiss) private var dismiss
+    @State private var started = false
+    @State private var period: Period = .range
+    @State private var day = Date()
+    @State private var start = Date().addingTimeInterval(-29 * 86_400)
+    @State private var end = Date()
+    @State private var title = ""
+    @State private var purpose = ""
+    @State private var available: [ReportData.Available] = []
+    @State private var selected = Set<String>()
+    @State private var reasons: [String: String] = [:]
+    @State private var aiSummary = true
+    @State private var busy: String?
+    @State private var status: String?
+
+    /// Cached in UIState: a Keychain read on every redraw made this screen stutter.
+    private var hasKey: Bool { ui?.hasKey ?? false }
+    private var startDate: String { ReportData.dayString(period == .day ? day : start, env.timeZone) }
+    private var endDate: String { ReportData.dayString(period == .day ? day : max(start, end), env.timeZone) }
+
+    var body: some View {
+        NavigationStack {
+            Form { newReport }
+                .themedList()
+                .keyboardDoneButton()
+                .navigationTitle("New report")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }.disabled(busy != nil)
+                    }
+                }
+        }
+        .interactiveDismissDisabled(busy != nil)
+        .task {
+            guard !started else { return }
+            started = true
+            let now = env.clock.now
+            day = now; end = now; start = now.addingTimeInterval(-29 * 86_400)
+        }
+        .task(id: "\(startDate)|\(endDate)") { await loadAvailable() }
+    }
 
     private var newReport: some View {
         Section {
@@ -132,51 +242,12 @@ struct ReportsView: View {
             .accessibilityIdentifier("report.create")
             if let busy { Text(busy).font(.caption).foregroundStyle(.secondary) }
             if let status { Text(status).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("report.status") }
-        } header: {
-            SectionHeader(title: "New report", systemImage: "doc.badge.plus")
         } footer: {
             Text(hasKey ? "The AI sees processed data through tools only, never raw watch data. Review its summary before sharing."
-                        : "Add an Anthropic API key in Settings → Claude for AI label choice and summaries; without it the report has data only.")
+                        : "Add an Anthropic API key in Settings → Agent for AI label choice and summaries; without it the report has data only.")
         }
     }
 
-    // MARK: Saved-report filters
-
-    private var savedFilters: some View {
-        Section {
-            Picker("Show", selection: $filter.kind) { ForEach(ReportFilter.Kind.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented)
-            Picker("Date", selection: $filter.dateMode) {
-                ForEach(ReportFilter.DateMode.allCases, id: \.self) { Text($0.rawValue) }
-            }
-            .accessibilityIdentifier("report.filter.date")
-            .onChange(of: filter.dateMode) { syncFilterDates() }
-            if filter.dateMode == .day {
-                DatePicker("On", selection: $filterStart, displayedComponents: .date)
-            } else if filter.dateMode == .range {
-                DatePicker("From", selection: $filterStart, displayedComponents: .date)
-                DatePicker("To", selection: $filterEnd, in: filterStart..., displayedComponents: .date)
-            }
-            NavigationLink {
-                ReportLabelFilter(labels: Array(Set(reports.flatMap(\.labels))).sorted { DataSnapshot.title($0) < DataSnapshot.title($1) },
-                                  selected: $filter.labels)
-            } label: {
-                LabeledContent("Data", value: filter.labels.isEmpty ? "Any" : "\(filter.labels.count) selected")
-            }
-            .accessibilityIdentifier("report.filter.labels")
-            TextField("Search title or question", text: $filter.text)
-            if filter.isActive {
-                Button("Clear filters", role: .destructive) { filter = ReportFilter() }
-            }
-        } header: { SectionHeader(title: "Filter saved reports", systemImage: "line.3.horizontal.decrease.circle") }
-    }
-
-    private func syncFilterDates() {
-        filter.start = ReportData.dayString(filterStart, env.timeZone)
-        filter.end = ReportData.dayString(max(filterStart, filterEnd), env.timeZone)
-    }
-
-    // MARK: Actions
 
     private func loadAvailable() async {
         available = await env.reports.availableAsync(start: startDate, end: endDate)
@@ -221,8 +292,7 @@ struct ReportsView: View {
             let ans = await a.ask(ReportPrompts.create(req))
             if let id = ans.reportIDs.last, let r = env.reports.record(id) {
                 busy = nil
-                status = "Report created (\(r.pages) pages)."
-                opened = r
+                onCreated(r)
                 return
             }
             status = "The AI didn't finish (\(ans.error ?? "no report")); created the report without a summary."
@@ -230,8 +300,9 @@ struct ReportsView: View {
         busy = "Creating the PDF…"
         do {
             let r = try await env.reports.create(req)
-            status = (status.map { $0 + " " } ?? "") + "Report created (\(r.pages) pages)."
-            opened = r
+            busy = nil
+            onCreated(r)
+            return
         } catch {
             status = "Couldn't create the report: \(error)"
         }
@@ -310,7 +381,6 @@ struct ReportLabelFilter: View {
 
     var body: some View {
         List {
-            if !selected.isEmpty { Button("Any data") { selected = [] } }
             ForEach(labels, id: \.self) { l in
                 Toggle(DataSnapshot.title(l), isOn: Binding(get: { selected.contains(l) },
                                                             set: { on in if on { selected.insert(l) } else { selected.remove(l) } }))

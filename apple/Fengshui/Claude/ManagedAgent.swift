@@ -99,7 +99,7 @@ struct SSEParser {
 }
 
 /// Where the agent lives. IDs aren't secrets but are account-specific: they come from the
-/// gitignored Local.xcconfig (via Info.plist) or Settings → Claude, never from the repo.
+/// gitignored Local.xcconfig (via Info.plist) or Settings → Agent, never from the repo.
 struct ManagedAgentConfig: Sendable, Codable, Equatable {
     static let key = "managed_agent"
     var enabled = true
@@ -172,7 +172,7 @@ actor ManagedAssistant: Assistant {
     private func environmentID() async throws -> String {
         if !config.environmentID.isEmpty { return config.environmentID }
         guard !config.chatSessionID.isEmpty else {
-            throw ClaudeTools.ToolError(description: "no environment: set a session ID in Settings → Claude")
+            throw ClaudeTools.ToolError(description: "no environment: set a session ID in Settings → Agent")
         }
         let s = try await json("GET", "v1/sessions/\(config.chatSessionID)")
         guard let env = s["environment_id"] as? String else { throw ClaudeTools.ToolError(description: "session has no environment") }
@@ -262,8 +262,7 @@ actor ManagedAssistant: Assistant {
         let stream = try await transport.events(sid)
         let message: [String: Any] = ["events": [[
             "type": "user.message",
-            "content": [["type": "text", "text": "Now: \(ClaudeAssistant.localDate(now, timeZone)) (\(timeZone.identifier))."],
-                        ["type": "text", "text": question]],
+            "content": ClaudeAssistant.context(db: db, now: now, timeZone: timeZone) + [["type": "text", "text": question]],
         ]]]
         do {
             _ = try await json("POST", "v1/sessions/\(sid)/events", message)
@@ -327,6 +326,16 @@ actor ManagedAssistant: Assistant {
                                              "content": [["type": "text", "text": out]]]
                 if isError { result["is_error"] = true }
                 _ = try await json("POST", "v1/sessions/\(sid)/events", ["events": [result]])
+            case "agent.mcp_tool_use":
+                // Data tools served over MCP (e.g. the Mac server's) run on Anthropic's side; record
+                // them so the question's report knows which data was used.
+                let name = ev["name"] as? String ?? ""
+                let input = ev["input"] as? [String: Any] ?? [:]
+                box.answer.toolCalls.append(name)
+                box.answer.calls.append(.init(name: name, input: input.mapValues { v in
+                    (v as? [Any]).map { $0.map { "\($0)" }.joined(separator: "\n") } ?? "\(v)"
+                }))
+                box.calls.append(["name": name, "input": input, "mcp": true])
             case "span.model_request_end":
                 let u = ev["model_usage"] as? [String: Any] ?? [:]
                 box.answer.inputTokens += (u["input_tokens"] as? Int ?? 0) + (u["cache_read_input_tokens"] as? Int ?? 0)

@@ -12,14 +12,17 @@ struct InboxButton: View {
     var body: some View {
         let unread = ui?.unread ?? 0
         Button { open = true } label: {
-            Image(systemName: unread > 0 ? "bell.badge" : "bell")
+            // Plain "bell" (bell.badge draws its own dot), and the count stays inside the label's
+            // frame: iOS 26's glass toolbar button clips anything offset past its bounds.
+            Image(systemName: "bell")
+                .frame(width: 34, height: 30)
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
                         Text(unread > 99 ? "99+" : "\(unread)")
-                            .font(.caption2.bold()).monospacedDigit().foregroundStyle(.white)
+                            .font(.system(size: 11, weight: .bold)).monospacedDigit().foregroundStyle(.white)
                             .padding(.horizontal, 4).frame(minWidth: 16, minHeight: 16)
                             .background(.red, in: .capsule)
-                            .offset(x: 10, y: -8)
+                            .fixedSize()
                             .accessibilityIdentifier("inbox.badge")
                     }
                 }
@@ -31,9 +34,23 @@ struct InboxButton: View {
 }
 
 extension View {
-    /// Adds the inbox bell to a tab's navigation bar.
+    /// Adds the profile avatar (Settings) and the inbox bell to a tab's navigation bar.
     func inboxToolbar(_ env: AppEnvironment) -> some View {
-        toolbar { ToolbarItem(placement: .topBarTrailing) { InboxButton(env: env) } }
+        toolbar {
+            ToolbarItem(placement: .topBarLeading) { SettingsButton() }
+            ToolbarItem(placement: .topBarTrailing) { InboxButton(env: env) }
+        }
+    }
+}
+
+/// The profile avatar that opens Settings (top-left on every tab).
+struct SettingsButton: View {
+    @Environment(UIState.self) private var ui: UIState?
+
+    var body: some View {
+        Button { ui?.showSettings = true } label: { ProfileAvatar(initials: ui?.profile.initials ?? "", size: 30) }
+            .accessibilityLabel("Profile and settings")
+            .accessibilityIdentifier("settings.open")
     }
 }
 

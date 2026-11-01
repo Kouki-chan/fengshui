@@ -171,14 +171,57 @@ final class ReportStore: Sendable {
         return (start, Swift.max(start, end), labels.filter { seen.insert($0).inserted })
     }
 
+    /// Data types a question or answer talks about ("sleep" → sleep_analysis…): the fallback when
+    /// the answer's tool calls name none (e.g. the agent fetched data in a way the phone doesn't see).
+    static func labels(mentionedIn text: String) -> [String] {
+        let t = text.lowercased()
+        let rules: [([String], [String])] = [
+            (["sleep", "slept", "bedtime", "nap", "wind-down", "wind down", "insomnia"], ["sleep_analysis"]),
+            (["step", "walk"], ["step_count", "distance_walking_running"]),
+            (["activ", "exercise", "workout", "running", "calorie", "energy", "fitness", "move"],
+             ["step_count", "active_energy_burned", "apple_exercise_time", "workout"]),
+            (["heart rate", "heart", "bpm", "pulse"], ["heart_rate", "resting_heart_rate"]),
+            (["hrv", "variability", "recovery", "stress"], ["heart_rate_variability_sdnn"]),
+            (["oxygen", "spo2", "blood o"], ["oxygen_saturation"]),
+            (["breath", "respirat"], ["respiratory_rate"]),
+            (["stairs", "flights"], ["flights_climbed"]),
+        ]
+        var out: [String] = []
+        for (words, labels) in rules where words.contains(where: t.contains) {
+            for l in labels where !out.contains(l) { out.append(l) }
+        }
+        return out
+    }
+
+    /// Gives labels to question reports saved without any (before MCP calls were recorded), from
+    /// their question and answer, so the Reports filter finds them. The PDFs are unchanged.
+    func labelUnlabeledReports() async {
+        let rows = (try? await db.writer.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT id, start_date, end_date, COALESCE(question, '') || ' ' || COALESCE(summary, '') || ' ' || title AS text
+                FROM reports WHERE labels_json = '[]'
+                """).map { ($0["id"] as Int64, $0["start_date"] as String, $0["end_date"] as String, $0["text"] as String) }
+        }) ?? []
+        for (id, start, end, text) in rows {
+            let present = Set(await availableAsync(start: start, end: end).map(\.label))
+            let labels = Self.labels(mentionedIn: text).filter(present.contains)
+            guard !labels.isEmpty, let json = try? JSONEncoder().encode(labels) else { continue }
+            try? await db.writer.write { db in
+                try db.execute(sql: "UPDATE reports SET labels_json = ? WHERE id = ?", arguments: [String(decoding: json, as: UTF8.self), id])
+            }
+        }
+    }
+
     /// The Ask tab calls this after each answer (unless the answer already created a report).
     func questionReport(question: String, answer: ClaudeAssistant.Answer) async -> ReportRecord? {
         guard answer.reportIDs.isEmpty, answer.error == nil || answer.error == "tool_round_limit" else { return nil }
         let sc = scope(of: answer)
         let present = Set(available(start: sc.start, end: sc.end).map(\.label))
+        var labels = sc.labels.filter(present.contains)
+        if labels.isEmpty { labels = Self.labels(mentionedIn: question + " " + answer.text).filter(present.contains) }
         let title = question.count > 60 ? String(question.prefix(57)) + "…" : question
         let req = ReportRequest(kind: .question, title: title, purpose: nil, startDate: sc.start, endDate: sc.end,
-                                labels: sc.labels.filter(present.contains), summary: answer.text, question: question,
+                                labels: labels, summary: answer.text, question: question,
                                 aiLogID: answer.logID, answeredBy: answer.answeredBy)
         return try? await create(req)
     }

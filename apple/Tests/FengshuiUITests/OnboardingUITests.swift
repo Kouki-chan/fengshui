@@ -68,6 +68,12 @@ final class OnboardingUITests: XCTestCase {
 
         // Today shows tonight's plan once the post-onboarding engine run finishes.
         XCTAssertTrue(app.staticTexts["Start winding down"].waitForExistence(timeout: 30))
+        // HealthBot's snippet sits on top of Today (built on the iPhone; no API key in test mode).
+        XCTAssertTrue(app.staticTexts["today.snippet.text"].waitForExistence(timeout: 10))
+
+        // Monitor is its own tab.
+        app.tabBars.buttons["Monitor"].tap()
+        XCTAssertTrue(app.navigationBars["Health monitor"].waitForExistence(timeout: 5))
 
         // Data tab: live tiles from the backfilled samples; a type opens its detail.
         app.tabBars.buttons["Data"].tap()
@@ -80,6 +86,8 @@ final class OnboardingUITests: XCTestCase {
 
         // Reports tab: a data-only report (no API key in test mode) opens as a PDF and lands in the inbox.
         app.tabBars.buttons["Reports"].tap()
+        XCTAssertTrue(app.buttons["report.new"].waitForExistence(timeout: 10))
+        app.buttons["report.new"].tap()
         let create = app.buttons["report.create"]
         XCTAssertTrue(create.waitForExistence(timeout: 10))
         XCTAssertTrue(waitEnabled(create), "default labels should be selected")
@@ -100,7 +108,15 @@ final class OnboardingUITests: XCTestCase {
         app.buttons["Done"].tap()
         XCTAssertFalse(app.descendants(matching: .any)["inbox.badge"].waitForExistence(timeout: 2))
 
-        app.tabBars.buttons["Settings"].tap()
+        // Settings opens from the profile avatar; the profile is edited and saved there.
+        app.buttons["settings.open"].firstMatch.tap()
+        app.buttons["settings.profile"].tap()
+        let name = app.textFields["profile.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Sam Test")
+        app.buttons["profile.save"].tap()  // saves and returns to Settings
+        XCTAssertTrue(app.staticTexts["Sam Test"].waitForExistence(timeout: 5))
         tapScrolling(app, "settings.debug")
         let hr = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'heart_rate'")).firstMatch
         XCTAssertTrue(hr.waitForExistence(timeout: 10))
@@ -117,6 +133,8 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["diag.status"].waitForExistence(timeout: 30))
         XCTAssertTrue(app.descendants(matching: .any)["diag.check.healthkit_types_readable"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
+
+        app.buttons["settings.done"].tap()
 
         // Ask tab: preset questions listed; without a key it explains what to do.
         app.tabBars.buttons["Ask"].tap()

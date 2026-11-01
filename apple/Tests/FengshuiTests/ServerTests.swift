@@ -149,12 +149,15 @@ final class ServerTests: XCTestCase {
         c = await runner.chooseServer(); XCTAssertTrue(c)                      // Low Power Mode + reachable
         StubServer.handler = { _, _ in (500, [:]) }
         c = await runner.chooseServer(); XCTAssertFalse(c)                     // unreachable → phone
+        try db.setPreference(EngineRunner.locationKey, EngineRunner.Location.server)
+        c = await runner.chooseServer(); XCTAssertFalse(c)                     // "Mac server" but unreachable → phone
     }
 
     func testServerFailureFallsBackToPhone() async throws {
         let (db, s) = try make("fallback")
         try db.setPreference(EngineRunner.locationKey, EngineRunner.Location.server)
-        StubServer.handler = { _, _ in (500, ["detail": "boom"]) }
+        // Reachable (health answers), but the sync/compute itself fails.
+        StubServer.handler = { path, _ in path.hasSuffix("health") ? (200, ["ok": true]) : (500, ["detail": "boom"]) }
         let runner = EngineRunner(db: db, clock: FixedClock(now), timeZone: .current, log: EventLog(), server: s)
         let rec = await runner.run(["wind_down"], trigger: "t")
         XCTAssertTrue(rec.ok)
@@ -168,6 +171,13 @@ final class ServerTests: XCTestCase {
         XCTAssertEqual(k.get("fengshui_test_key"), "v1")
         k.set("fengshui_test_key", nil)
         XCTAssertNil(k.get("fengshui_test_key"))
+    }
+
+    func testServerURLIsCleanedUp() {
+        XCTAssertEqual(ServerDiscovery.normalize("http://10.0.0.216:8765/health"), "http://10.0.0.216:8765")
+        XCTAssertEqual(ServerDiscovery.normalize(" 10.0.0.216:8765/ "), "http://10.0.0.216:8765")
+        XCTAssertEqual(ServerDiscovery.normalize("http://mac.local:8765"), "http://mac.local:8765")
+        XCTAssertEqual(ServerDiscovery.normalize(""), "")
     }
 }
 
